@@ -16,6 +16,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - uses: actions/checkout@v2
+    - name: Install latest nightly
+      uses: fsouza/rs-toolchain@v1.1.0
+      with:
+        toolchain: stable
+        target: x86_64-pc-windows-gnu
+        default: true
     - name: Env
       run: rustup target add x86_64-pc-windows-gnu
            
