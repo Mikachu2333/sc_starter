@@ -19,6 +19,6 @@ jobs:
     - name: Env
       run: rustup target add x86_64-pc-windows-gnu
     - name: Build
-      run: cargo build -r --target=x86_64-pc-windows-gnu --verbose
+      run: cargo build -r --target=x86_64-pc-windows-msvc --verbose
     - name: Run tests
       run: cargo test --verbose
