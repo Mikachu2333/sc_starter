@@ -23,10 +23,20 @@ jobs:
         target: x86_64-pc-windows-gnu
         default: true
         override: true
-  
     - name: Test Env
       run: |
         gcc -v
         x86_64-w64-mingw32-gcc -v
+        
     - name: Build
       run: cargo build -r --target=x86_64-pc-windows-gnu
+
+    - name: show dir
+      run: powershell tree .
+    - name: Upload
+      uses: actions/upload-artifact@v4
+      with:
+          name: Preview
+          path: ./build/x86_64-pc-windows-gnu/sc_starter.exe
+
+
