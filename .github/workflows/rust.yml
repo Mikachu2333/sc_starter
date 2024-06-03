@@ -16,6 +16,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Env
+      run: rustc --print target-list
     - name: Build
       run: cargo build -r --verbose
     - name: Run tests
