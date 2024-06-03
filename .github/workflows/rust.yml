@@ -17,9 +17,9 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Env
-      run: rustup target add x86_64-pc-windows-msvc
+      run: rustup target add x86_64-pc-windows-gnu
            
     - name: Build
-      run: cargo build -r --target=x86_64-pc-windows-msvc --verbose
+      run: cargo build -r --target=x86_64-pc-windows-gnu --verbose
     - name: Run tests
       run: cargo test --verbose
