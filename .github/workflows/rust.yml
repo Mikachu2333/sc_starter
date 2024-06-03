@@ -37,6 +37,6 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
           name: Preview
-          path: ./build/x86_64-pc-windows-gnu/sc_starter.exe
+          path: ./target/x86_64-pc-windows-gnu/release/sc_starter.exe
 
 
