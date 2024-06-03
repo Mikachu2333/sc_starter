@@ -22,5 +22,6 @@ jobs:
         toolchain: stable
         target: x86_64-pc-windows-gnu
         default: true
+        override: true
     - name: Build
       run: cargo build -r --target=x86_64-pc-windows-gnu
