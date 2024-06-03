@@ -16,7 +16,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/checkout@v2
     - name: Install latest nightly
       uses: fsouza/rs-toolchain@v1.1.0
       with:
