@@ -101,16 +101,16 @@ fn unzip_res(paths: &PathInfos, exists: &FileExist) {
     println!("Finish release Exe.");
 }
 
-fn operate_exe(path: &PathBuf, mode: u8) {
+fn operate_exe(path: &PathBuf, mode: usize) {
     match mode {
         0 => {
-            exit(0);
-        }
-        1 => {
             Command::new(&path).spawn().unwrap();
         }
-        2 => {
+        1 => {
             Command::new(&path).arg("--pin:clipboard").spawn().unwrap();
+        }
+        2 => {
+            exit(0);
         }
         3 => {
             Command::new("explorer.exe").arg(&path).spawn().unwrap();
@@ -131,18 +131,19 @@ fn set_hotkeys(
         let res_path = exe_path.clone();
         let key_groups = key_groups;
         let mut hkm = HotkeyManager::new();
+
         hkm.register(key_groups[0].vkey, &key_groups[0].mod_keys, move || {
-            operate_exe(&exe_path, 1);
+            operate_exe(&exe_path, 0);
         })
         .unwrap();
 
         hkm.register(key_groups[1].vkey, &key_groups[1].mod_keys, move || {
-            operate_exe(&res_path, 2);
+            operate_exe(&res_path, 1);
         })
         .unwrap();
 
         hkm.register(key_groups[2].vkey, &key_groups[2].mod_keys, move || {
-            operate_exe(&PathBuf::new(), 0);
+            operate_exe(&PathBuf::new(), 2);
         })
         .unwrap();
 
@@ -195,26 +196,7 @@ fn match_keys(groups: KeyStringGroups) -> (bool, KeyVkGroups) {
     return (success, temp);
 }
 
-fn read_config(conf_path: &PathBuf) -> Vec<KeyVkGroups> {
-    //Default
-    let default_setting: Vec<KeyVkGroups> = Vec::from([
-        KeyVkGroups {
-            mod_keys: Vec::from([ModKey::Win, ModKey::Alt]),
-            vkey: VKey::V,
-        },
-        KeyVkGroups {
-            mod_keys: Vec::from([ModKey::Win, ModKey::Alt]),
-            vkey: VKey::C,
-        },
-        KeyVkGroups {
-            mod_keys: Vec::from([ModKey::Win, ModKey::Ctrl, ModKey::Shift]),
-            vkey: VKey::Escape,
-        },
-        KeyVkGroups {
-            mod_keys: Vec::from([ModKey::Ctrl, ModKey::Alt]),
-            vkey: VKey::O,
-        },
-    ]);
+fn read_config(conf_path: &PathBuf, default_settings: &Vec<KeyVkGroups>) -> Vec<KeyVkGroups> {
     //读取配置
     let mut f = File::open(conf_path).unwrap();
     let mut full_content = String::new();
@@ -245,7 +227,7 @@ fn read_config(conf_path: &PathBuf) -> Vec<KeyVkGroups> {
         if status {
             result_groups.push(result);
         } else {
-            result_groups.push(default_setting[count].clone());
+            result_groups.push(default_settings[count].clone());
         }
         count += 1;
     }
@@ -268,10 +250,33 @@ fn main() {
     //println!("{:?}", &exist_result);
     unzip_res(&path_infos, &exist_result);
 
+    //Default
+    let default_setting: Vec<KeyVkGroups> = Vec::from([
+        KeyVkGroups {
+            mod_keys: Vec::from([ModKey::Win, ModKey::Alt]),
+            vkey: VKey::V,
+        },
+        KeyVkGroups {
+            mod_keys: Vec::from([ModKey::Win, ModKey::Alt]),
+            vkey: VKey::C,
+        },
+        KeyVkGroups {
+            mod_keys: Vec::from([ModKey::Win, ModKey::Ctrl, ModKey::Shift]),
+            vkey: VKey::Escape,
+        },
+        KeyVkGroups {
+            mod_keys: Vec::from([ModKey::Ctrl, ModKey::Alt]),
+            vkey: VKey::O,
+        },
+    ]);
     //Read Setting
-    let settings = read_config(&path_infos.conf_path);
+    let settings = read_config(&path_infos.conf_path, &default_setting);
     println!("{:?}", &settings);
     //Set Hotkeys
-    let handler = set_hotkeys(&path_infos.exe_path, &path_infos.conf_path, settings);
+    let handler = set_hotkeys(
+        &path_infos.exe_path,
+        &path_infos.conf_path,
+        settings,
+    );
     handler.join().unwrap();
 }
