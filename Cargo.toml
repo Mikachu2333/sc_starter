@@ -1,6 +1,6 @@
 [package]
 name    = "sc_starter"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -11,10 +11,9 @@ opt-level     = "z"
 strip         = true
 
 [dependencies]
-sha3 = "0.10.8"
 directories = "5.0.1"
 rust-embed = { version = "8.4.0", default-features = false, features = [
     "compression",
 ] }
+#tray-icon = { version = "0.14.3", default-features = false }
 windows-hotkeys = "0.2.1"
-fslock = "0.2.1"
