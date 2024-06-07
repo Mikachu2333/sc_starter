@@ -36,7 +36,7 @@ fn check_res_exist() -> (bool, bool, PathBuf) {
     let mut if_latest = false;
     if if_exist_exe {
         let read_sha3 = calc_sha3_256(&path_for_res);
-        if read_sha3 == "0dfedae82300fca4bb5f75b8b083cffcc42518006ccd0b50eaea06ad6a433e74" {
+        if read_sha3 == "A6BA93853EAFD5ECFBB26CEEABE3BABA9F2C0AD1D5FEDECF0A7966A5ECCF1380".to_lowercase() {
             if_latest = true;
         } else {
             if_latest = false;
