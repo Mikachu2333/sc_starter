@@ -169,11 +169,17 @@ fn match_keys(groups: KeyStringGroups) -> (bool, KeyVkGroups) {
         results_mod.push(tmp);
     }
 
-    let result_vk = match VKey::from_keyname(&group2) {
-        Ok(vk_key) => vk_key,
-        Err(_) => VKey::OemClear,
+    let result_vk = if group2.len() != 1 {
+        match VKey::from_keyname(&group2.to_ascii_uppercase()) {
+            Ok(vk_key) => vk_key,
+            Err(_) => VKey::OemClear,
+        }
+    } else {
+        match VKey::from_keyname(&group2) {
+            Ok(vk_key) => vk_key,
+            Err(_) => VKey::OemClear,
+        }
     };
-
     let mut success = true;
     for i in &results_mod {
         if *i == ModKey::NoRepeat {
@@ -273,10 +279,6 @@ fn main() {
     let settings = read_config(&path_infos.conf_path, &default_setting);
     println!("{:?}", &settings);
     //Set Hotkeys
-    let handler = set_hotkeys(
-        &path_infos.exe_path,
-        &path_infos.conf_path,
-        settings,
-    );
+    let handler = set_hotkeys(&path_infos.exe_path, &path_infos.conf_path, settings);
     handler.join().unwrap();
 }
