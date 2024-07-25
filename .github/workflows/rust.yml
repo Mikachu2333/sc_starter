@@ -11,26 +11,23 @@ env:
 
 jobs:
   build:
-
-    runs-on: windows-latest
-
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Install target
-      uses: fsouza/rs-toolchain@v1.1.0
+    - name: rust-toolchain-reborn
+      uses: crusty-pie/toolchain@v1.0.8
       with:
         toolchain: stable
-        target: x86_64-pc-windows-gnu
+        targets: x86_64-pc-windows-msvc
         default: true
         override: true
         
     - name: Build
-      run: cargo build -r --target=x86_64-pc-windows-gnu
+      run: cargo build -r
 
     - name: Upload
       uses: actions/upload-artifact@v4
       with:
           name: Preview
-          path: ./target/x86_64-pc-windows-gnu/release/sc_starter.exe
-
+          path: ./target/release/SC_Starter.exe
 
