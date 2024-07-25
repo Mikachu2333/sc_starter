@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+use core::time;
 use directories::BaseDirs;
 use rust_embed::*;
 use std::{
@@ -22,7 +23,7 @@ struct FileExist {
     conf_exist: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct PathInfos {
     dir_path: PathBuf,
     exe_path: PathBuf,
@@ -56,7 +57,11 @@ fn check_res_exist(infos: &PathInfos) -> FileExist {
         conf_exist: false,
     };
     if !infos.dir_path.exists() {
-        let _ = fs::create_dir_all(&infos.dir_path);
+        //如果不存在则创建文件夹避免以后出现error
+        match fs::create_dir_all(&infos.dir_path) {
+            Ok(_) => (),
+            Err(_) => panic!("Error"),
+        };
     };
 
     files_exist.exe_exist = infos.exe_path.exists();
@@ -75,7 +80,8 @@ fn check_res_exist(infos: &PathInfos) -> FileExist {
 
 fn check_exe_latest(file_path: &PathBuf) -> bool {
     let in_size = file_path.metadata().unwrap().file_size();
-    let original_size: u64 = 3905024;
+    //直接通过程序size判断是否为最新版，此size为2.1.10.0版本
+    let original_size: u64 = 3920896;
     if in_size == original_size {
         return true;
     } else {
@@ -84,6 +90,7 @@ fn check_exe_latest(file_path: &PathBuf) -> bool {
 }
 
 fn unzip_res(paths: &PathInfos, exists: &FileExist) {
+    //解压相关资源
     #[derive(Embed)]
     #[folder = "res/"]
     struct Asset;
@@ -102,6 +109,7 @@ fn unzip_res(paths: &PathInfos, exists: &FileExist) {
 }
 
 fn operate_exe(path: &PathBuf, mode: usize) {
+    //实际操作程序进行调用
     match mode {
         0 => {
             Command::new(&path).spawn().unwrap();
@@ -124,6 +132,9 @@ fn set_hotkeys(
     conf_path: &PathBuf,
     key_groups: Vec<KeyVkGroups>,
 ) -> JoinHandle<()> {
+    //根据配置文件设置快捷键
+    //因为检测的延迟性，至少要多出1s以免注册失败
+    thread::sleep(time::Duration::from_secs(3));
     let exe_path = exe_path.clone();
     let conf_path = conf_path.clone();
     let key_groups = key_groups.clone();
@@ -157,6 +168,7 @@ fn set_hotkeys(
 }
 
 fn match_keys(groups: KeyStringGroups) -> (bool, KeyVkGroups) {
+    //将字符串类型快捷键从转换为快捷键组合，并返回状态与快捷键组
     let group1 = groups.mod_keys;
     let group2 = groups.vkey;
     let mut results_mod: Vec<ModKey> = Vec::new();
@@ -168,27 +180,20 @@ fn match_keys(groups: KeyStringGroups) -> (bool, KeyVkGroups) {
         };
         results_mod.push(tmp);
     }
-
-    let result_vk = if group2.len() != 1 {
-        match VKey::from_keyname(&group2.to_ascii_uppercase()) {
-            Ok(vk_key) => vk_key,
-            Err(_) => VKey::OemClear,
-        }
-    } else {
-        match VKey::from_keyname(&group2) {
-            Ok(vk_key) => vk_key,
-            Err(_) => VKey::OemClear,
-        }
+    let result_vk = match VKey::from_keyname(&group2.to_ascii_uppercase()) {
+        Ok(vk_key) => vk_key,
+        Err(_) => VKey::OemClear,
     };
-    let mut success = true;
+
+    let mut status = true;
     for i in &results_mod {
         if *i == ModKey::NoRepeat {
-            success = false;
+            status = false;
         }
     }
 
     if result_vk == VKey::OemClear {
-        success = false;
+        status = false;
     }
 
     let struct_pack = |x: Vec<ModKey>, y: VKey| {
@@ -199,7 +204,7 @@ fn match_keys(groups: KeyStringGroups) -> (bool, KeyVkGroups) {
         tmp
     };
     let temp: KeyVkGroups = struct_pack(results_mod, result_vk);
-    return (success, temp);
+    return (status, temp);
 }
 
 fn read_config(conf_path: &PathBuf, default_settings: &Vec<KeyVkGroups>) -> Vec<KeyVkGroups> {
@@ -208,8 +213,10 @@ fn read_config(conf_path: &PathBuf, default_settings: &Vec<KeyVkGroups>) -> Vec<
     let mut full_content = String::new();
     let _ = f.read_to_string(&mut full_content);
     let full_content: Vec<&str> = full_content.split("\n").collect();
+    //暴力只取前4行，实际上conf文件后面注释的#号纯粹无用，好看而已（
     let usefull_content: Vec<&str> = full_content[..4].to_vec();
 
+    //这个闭包接收两个String然后返回一个包装好的KeyStringGroups类型便于下面解析
     let struct_pack = |x: Vec<String>, y: String| {
         let tmp = KeyStringGroups {
             mod_keys: x,
@@ -218,6 +225,7 @@ fn read_config(conf_path: &PathBuf, default_settings: &Vec<KeyVkGroups>) -> Vec<
         tmp
     };
 
+    //4个配置得到4个group，再整合成一个groups
     let mut groups: Vec<KeyStringGroups> = Vec::new();
     for i in usefull_content {
         let sum_keys: Vec<String> = i.split("=").map(String::from).collect();
@@ -241,6 +249,54 @@ fn read_config(conf_path: &PathBuf, default_settings: &Vec<KeyVkGroups>) -> Vec<
     result_groups
 }
 
+fn get_time(config_dir: &PathBuf) -> PathBuf {
+    //获取当前系统秒数并创建文件，同时如果有旧的删除旧的，为实现单实例做准备
+    let seconds = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+        Ok(n) => String::from("TIME") + n.as_secs().to_string().as_str(),
+        Err(_) => String::from("0"),
+    };
+    let time_check_file = config_dir.join(&seconds);
+    match fs::File::create(&time_check_file) {
+        Ok(_) => true,
+        Err(_) => false,
+    };
+
+    let mut time_file_nums: Vec<u64> = Vec::new();
+    for entry in fs::read_dir(config_dir).unwrap() {
+        let path = entry.unwrap().path();
+        let name = path.file_stem().unwrap().to_str().unwrap();
+        if name.starts_with("TIME") {
+            time_file_nums.push((name.split_at(4).1).parse::<u64>().unwrap());
+        }
+    }
+    while time_file_nums.len() > 1 {
+        if time_file_nums[0] < time_file_nums[1] {
+            let _ = fs::remove_file(config_dir.join(format!("{}{}", "TIME", time_file_nums[0])))
+                .unwrap();
+            time_file_nums.remove(0);
+        } else {
+            let _ = fs::remove_file(config_dir.join(format!("{}{}", "TIME", time_file_nums[1])))
+                .unwrap();
+            time_file_nums.remove(1);
+        }
+    }
+
+    time_check_file
+}
+
+fn avoid_multiple(check_file: &PathBuf) -> JoinHandle<()> {
+    //避免多开，仍然不是很完善……
+    let file_path = check_file.clone();
+    let handle = thread::spawn(move || loop {
+        if file_path.exists() {
+            thread::sleep(time::Duration::from_secs(2))
+        } else {
+            exit(-1);
+        }
+    });
+    handle
+}
+
 fn main() {
     //Init
     let mut path_infos = PathInfos {
@@ -255,6 +311,12 @@ fn main() {
     let exist_result = check_res_exist(&path_infos);
     //println!("{:?}", &exist_result);
     unzip_res(&path_infos, &exist_result);
+
+    //防止重复
+    let time_file_path = get_time(&path_infos.dir_path);
+    let _time_handler = avoid_multiple(&time_file_path);
+    //下面这行加了反而不行……
+    //time_handler.join().unwrap();
 
     //Default
     let default_setting: Vec<KeyVkGroups> = Vec::from([
