@@ -134,7 +134,7 @@ fn set_hotkeys(
 ) -> JoinHandle<()> {
     //根据配置文件设置快捷键
     //因为检测的延迟性，至少要多出1s以免注册失败
-    thread::sleep(time::Duration::from_secs(3));
+    thread::sleep(time::Duration::from_secs(2));
     let exe_path = exe_path.clone();
     let conf_path = conf_path.clone();
     let key_groups = key_groups.clone();
@@ -256,10 +256,14 @@ fn get_time(config_dir: &PathBuf) -> PathBuf {
         Err(_) => String::from("0"),
     };
     let time_check_file = config_dir.join(&seconds);
-    match fs::File::create(&time_check_file) {
-        Ok(_) => true,
-        Err(_) => false,
-    };
+    if !time_check_file.exists() {
+        match fs::File::create(&time_check_file) {
+            Ok(_) => true,
+            Err(_) => panic!("No permissions."),
+        };
+    } else {
+        exit(-1);
+    }
 
     let mut time_file_nums: Vec<u64> = Vec::new();
     for entry in fs::read_dir(config_dir).unwrap() {
@@ -289,7 +293,7 @@ fn avoid_multiple(check_file: &PathBuf) -> JoinHandle<()> {
     let file_path = check_file.clone();
     let handle = thread::spawn(move || loop {
         if file_path.exists() {
-            thread::sleep(time::Duration::from_secs(2))
+            thread::sleep(time::Duration::from_secs(1))
         } else {
             exit(-1);
         }
