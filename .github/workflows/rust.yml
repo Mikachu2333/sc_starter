@@ -23,11 +23,11 @@ jobs:
         override: true
         
     - name: Build
-      run: cargo build -r
+      run: cargo build -r --target=x86_64-pc-windows-msvc
 
     - name: Upload
       uses: actions/upload-artifact@v4
       with:
           name: Preview
-          path: ./target/release/SC_Starter.exe
+          path: ./target/x86_64-pc-windows-msvc/release/SC_Starter.exe
 
