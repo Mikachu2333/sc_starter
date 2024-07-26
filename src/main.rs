@@ -6,7 +6,7 @@ use std::{
     fs::{self, File},
     io::Read,
     os::windows::fs::MetadataExt,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{exit, Command},
     thread::{self, JoinHandle},
 };
@@ -69,24 +69,16 @@ fn check_res_exist(infos: &PathInfos) -> FileExist {
 
     if files_exist.exe_exist {
         files_exist.exe_exist = true;
-        if check_exe_latest(&infos.exe_path) {
-            files_exist.exe_latest = true;
-        } else {
-            files_exist.exe_latest = false;
-        }
+        files_exist.exe_latest = check_exe_latest(&infos.exe_path);
     }
     files_exist
 }
 
-fn check_exe_latest(file_path: &PathBuf) -> bool {
+fn check_exe_latest(file_path: &Path) -> bool {
     let in_size = file_path.metadata().unwrap().file_size();
     //直接通过程序size判断是否为最新版，此size为2.1.10.0版本
     let original_size: u64 = 3920896;
-    if in_size == original_size {
-        return true;
-    } else {
-        return false;
-    }
+    in_size == original_size
 }
 
 fn unzip_res(paths: &PathInfos, exists: &FileExist) {
@@ -108,35 +100,31 @@ fn unzip_res(paths: &PathInfos, exists: &FileExist) {
     println!("Finish release Exe.");
 }
 
-fn operate_exe(path: &PathBuf, mode: usize) {
+fn operate_exe(path: &Path, mode: usize) {
     //实际操作程序进行调用
     match mode {
         0 => {
-            Command::new(&path).spawn().unwrap();
+            Command::new(path).spawn().unwrap();
         }
         1 => {
-            Command::new(&path).arg("--pin:clipboard").spawn().unwrap();
+            Command::new(path).arg("--pin:clipboard").spawn().unwrap();
         }
         2 => {
             exit(0);
         }
         3 => {
-            Command::new("explorer.exe").arg(&path).spawn().unwrap();
+            Command::new("explorer.exe").arg(path).spawn().unwrap();
         }
         _ => (),
     }
 }
 
-fn set_hotkeys(
-    exe_path: &PathBuf,
-    conf_path: &PathBuf,
-    key_groups: Vec<KeyVkGroups>,
-) -> JoinHandle<()> {
+fn set_hotkeys(exe_path: &Path, conf_path: &Path, key_groups: Vec<KeyVkGroups>) -> JoinHandle<()> {
     //根据配置文件设置快捷键
     //因为检测的延迟性，至少要多出1s以免注册失败
     thread::sleep(time::Duration::from_secs(2));
-    let exe_path = exe_path.clone();
-    let conf_path = conf_path.clone();
+    let exe_path = exe_path.to_owned();
+    let conf_path = conf_path.to_owned();
     let key_groups = key_groups.clone();
     thread::spawn(move || {
         let res_path = exe_path.clone();
@@ -196,18 +184,15 @@ fn match_keys(groups: KeyStringGroups) -> (bool, KeyVkGroups) {
         status = false;
     }
 
-    let struct_pack = |x: Vec<ModKey>, y: VKey| {
-        let tmp = KeyVkGroups {
-            mod_keys: x,
-            vkey: y,
-        };
-        tmp
+    let struct_pack = |x: Vec<ModKey>, y: VKey| KeyVkGroups {
+        mod_keys: x,
+        vkey: y,
     };
     let temp: KeyVkGroups = struct_pack(results_mod, result_vk);
-    return (status, temp);
+    (status, temp)
 }
 
-fn read_config(conf_path: &PathBuf, default_settings: &Vec<KeyVkGroups>) -> Vec<KeyVkGroups> {
+fn read_config(conf_path: &PathBuf, default_settings: &[KeyVkGroups]) -> Vec<KeyVkGroups> {
     //读取配置
     let mut f = File::open(conf_path).unwrap();
     let mut full_content = String::new();
@@ -217,12 +202,9 @@ fn read_config(conf_path: &PathBuf, default_settings: &Vec<KeyVkGroups>) -> Vec<
     let usefull_content: Vec<&str> = full_content[..4].to_vec();
 
     //这个闭包接收两个String然后返回一个包装好的KeyStringGroups类型便于下面解析
-    let struct_pack = |x: Vec<String>, y: String| {
-        let tmp = KeyStringGroups {
-            mod_keys: x,
-            vkey: y,
-        };
-        tmp
+    let struct_pack = |x: Vec<String>, y: String| KeyStringGroups {
+        mod_keys: x,
+        vkey: y,
     };
 
     //4个配置得到4个group，再整合成一个groups
@@ -234,16 +216,14 @@ fn read_config(conf_path: &PathBuf, default_settings: &Vec<KeyVkGroups>) -> Vec<
     }
 
     let mut result_groups: Vec<KeyVkGroups> = Vec::new();
-    let mut count: usize = 0;
-    for i in groups {
-        let (status, result) = match_keys(i);
+    for (i,j) in groups.into_iter().enumerate() {
+        let (status, result) = match_keys(j);
         //println!("{} {:?}",&status,&result);
         if status {
             result_groups.push(result);
         } else {
-            result_groups.push(default_settings[count].clone());
+            result_groups.push(default_settings[i].clone());
         }
-        count += 1;
     }
 
     result_groups
@@ -275,12 +255,10 @@ fn get_time(config_dir: &PathBuf) -> PathBuf {
     }
     while time_file_nums.len() > 1 {
         if time_file_nums[0] < time_file_nums[1] {
-            let _ = fs::remove_file(config_dir.join(format!("{}{}", "TIME", time_file_nums[0])))
-                .unwrap();
+            fs::remove_file(config_dir.join(format!("{}{}", "TIME", time_file_nums[0]))).unwrap();
             time_file_nums.remove(0);
         } else {
-            let _ = fs::remove_file(config_dir.join(format!("{}{}", "TIME", time_file_nums[1])))
-                .unwrap();
+            fs::remove_file(config_dir.join(format!("{}{}", "TIME", time_file_nums[1]))).unwrap();
             time_file_nums.remove(1);
         }
     }
@@ -288,17 +266,17 @@ fn get_time(config_dir: &PathBuf) -> PathBuf {
     time_check_file
 }
 
-fn avoid_multiple(check_file: &PathBuf) -> JoinHandle<()> {
+fn avoid_multiple(check_file: &Path) -> JoinHandle<()> {
     //避免多开，仍然不是很完善……
-    let file_path = check_file.clone();
-    let handle = thread::spawn(move || loop {
+    let file_path = check_file.to_owned();
+
+    thread::spawn(move || loop {
         if file_path.exists() {
             thread::sleep(time::Duration::from_secs(1))
         } else {
             exit(-1);
         }
-    });
-    handle
+    })
 }
 
 fn main() {
