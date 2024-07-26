@@ -1,11 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use core::time;
+extern crate single_instance;
 use directories::BaseDirs;
 use rust_embed::*;
+use single_instance::SingleInstance;
 use std::{
     fs::{self, File},
     io::Read,
-    os::windows::fs::MetadataExt,
+    os::windows::{fs::MetadataExt, process::CommandExt},
     path::{Path, PathBuf},
     process::{exit, Command},
     thread::{self, JoinHandle},
@@ -15,6 +16,11 @@ use windows_hotkeys::{
     singlethreaded::HotkeyManager,
     HotkeyManagerImpl,
 };
+
+//随机的GUID，用于防止多开
+const PROCESS_ID: &str = "2E94A7BAE3864EEBA3FCC7AB758C2112";
+//此size为2.1.10.0版本
+const RES_SIZE: u64 = 3920896;
 
 #[derive(Clone, Copy, Debug)]
 struct FileExist {
@@ -48,6 +54,11 @@ struct KeyVkGroups {
     mod_keys: Vec<ModKey>,
     vkey: VKey,
 }
+impl std::fmt::Display for KeyVkGroups {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "mod keys: {:?}\nvkey: {}\n", self.mod_keys, self.vkey)
+    }
+}
 
 fn check_res_exist(infos: &PathInfos) -> FileExist {
     // 测试是否存在或需要替换exe文件
@@ -76,9 +87,8 @@ fn check_res_exist(infos: &PathInfos) -> FileExist {
 
 fn check_exe_latest(file_path: &Path) -> bool {
     let in_size = file_path.metadata().unwrap().file_size();
-    //直接通过程序size判断是否为最新版，此size为2.1.10.0版本
-    let original_size: u64 = 3920896;
-    in_size == original_size
+    //直接通过程序size判断是否为最新版
+    in_size == RES_SIZE
 }
 
 fn unzip_res(paths: &PathInfos, exists: &FileExist) {
@@ -92,39 +102,52 @@ fn unzip_res(paths: &PathInfos, exists: &FileExist) {
 
     if (!exists.exe_exist) || (!exists.exe_latest) {
         let _ = fs::write(&paths.exe_path, screen_capture_res.data.as_ref());
+        println!("Release exe file.");
     }
     if !exists.conf_exist {
         let _ = fs::write(&paths.conf_path, config_res.data.as_ref());
+        println!("Release config file.");
+        operate_exe(&paths.conf_path, 3);
+        operate_exe(Path::new(""), 4);
+        operate_exe(Path::new(""), 2);
+    } else {
+        println!("No need to release.");
     }
-
-    println!("Finish release Exe.");
 }
 
 fn operate_exe(path: &Path, mode: usize) {
-    //实际操作程序进行调用
+    // 实际操作程序
+    // 0 -> 运行截屏
+    // 1 -> 钉图
+    // 2 -> 退出
+    // 3 -> 打开设置文件
+    // 4 -> 3s后提示重启
+    // ... -> panic
     match mode {
         0 => {
-            Command::new(path).spawn().unwrap();
+            let _ = Command::new(path).spawn().unwrap();
         }
         1 => {
-            Command::new(path).arg("--pin:clipboard").spawn().unwrap();
+            let _ = Command::new(path).arg("--pin:clipboard").spawn().unwrap();
         }
-        2 => {
-            exit(0);
-        }
+        2 => exit(0),
         3 => {
-            Command::new("explorer.exe").arg(path).spawn().unwrap();
+            let _ = Command::new("explorer.exe").arg(path).spawn().unwrap();
         }
-        _ => (),
+        4 => {
+            std::thread::sleep(std::time::Duration::from_secs(3));
+            let _output: Result<std::process::Child, std::io::Error> = Command::new("mshta.exe")
+                .raw_arg(r#"vbscript:Execute("msgbox ""Please Restart SC_Starter"" :close")"#)
+                .spawn();
+        }
+        _ => panic!("Error arg!"),
     }
 }
 
-fn set_hotkeys(exe_path: &Path, conf_path: &Path, key_groups: Vec<KeyVkGroups>) -> JoinHandle<()> {
+fn set_hotkeys(paths: &PathInfos, key_groups: Vec<KeyVkGroups>) -> JoinHandle<()> {
     //根据配置文件设置快捷键
-    //因为检测的延迟性，至少要多出1s以免注册失败
-    thread::sleep(time::Duration::from_secs(2));
-    let exe_path = exe_path.to_owned();
-    let conf_path = conf_path.to_owned();
+    let exe_path = paths.exe_path.to_owned();
+    let conf_path = paths.conf_path.to_owned();
     let key_groups = key_groups.clone();
     thread::spawn(move || {
         let res_path = exe_path.clone();
@@ -142,7 +165,7 @@ fn set_hotkeys(exe_path: &Path, conf_path: &Path, key_groups: Vec<KeyVkGroups>) 
         .unwrap();
 
         hkm.register(key_groups[2].vkey, &key_groups[2].mod_keys, move || {
-            operate_exe(&PathBuf::new(), 2);
+            operate_exe(Path::new(""), 2);
         })
         .unwrap();
 
@@ -216,7 +239,7 @@ fn read_config(conf_path: &PathBuf, default_settings: &[KeyVkGroups]) -> Vec<Key
     }
 
     let mut result_groups: Vec<KeyVkGroups> = Vec::new();
-    for (i,j) in groups.into_iter().enumerate() {
+    for (i, j) in groups.into_iter().enumerate() {
         let (status, result) = match_keys(j);
         //println!("{} {:?}",&status,&result);
         if status {
@@ -229,60 +252,32 @@ fn read_config(conf_path: &PathBuf, default_settings: &[KeyVkGroups]) -> Vec<Key
     result_groups
 }
 
-fn get_time(config_dir: &PathBuf) -> PathBuf {
-    //获取当前系统秒数并创建文件，同时如果有旧的删除旧的，为实现单实例做准备
-    let seconds = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
-        Ok(n) => String::from("TIME") + n.as_secs().to_string().as_str(),
-        Err(_) => String::from("0"),
-    };
-    let time_check_file = config_dir.join(&seconds);
-    if !time_check_file.exists() {
-        match fs::File::create(&time_check_file) {
-            Ok(_) => true,
-            Err(_) => panic!("No permissions."),
-        };
-    } else {
-        exit(-1);
-    }
-
-    let mut time_file_nums: Vec<u64> = Vec::new();
-    for entry in fs::read_dir(config_dir).unwrap() {
-        let path = entry.unwrap().path();
-        let name = path.file_stem().unwrap().to_str().unwrap();
-        if name.starts_with("TIME") {
-            time_file_nums.push((name.split_at(4).1).parse::<u64>().unwrap());
+fn avoid_exe_del(conf_path: &Path) {
+    let path = conf_path.to_owned();
+    let handler_check = thread::spawn(move || {
+        loop {
+            if path.exists() {
+                std::thread::sleep(std::time::Duration::from_secs(5));
+            } else {
+                break;
+            }
         }
-    }
-    while time_file_nums.len() > 1 {
-        if time_file_nums[0] < time_file_nums[1] {
-            fs::remove_file(config_dir.join(format!("{}{}", "TIME", time_file_nums[0]))).unwrap();
-            time_file_nums.remove(0);
-        } else {
-            fs::remove_file(config_dir.join(format!("{}{}", "TIME", time_file_nums[1]))).unwrap();
-            time_file_nums.remove(1);
-        }
-    }
-
-    time_check_file
-}
-
-fn avoid_multiple(check_file: &Path) -> JoinHandle<()> {
-    //避免多开，仍然不是很完善……
-    let file_path = check_file.to_owned();
-
-    thread::spawn(move || loop {
-        if file_path.exists() {
-            thread::sleep(time::Duration::from_secs(1))
-        } else {
-            exit(-1);
-        }
-    })
+        panic!("Config file not found.");
+    });
+    //阻塞运行时间最长的那个（panic无法使整个程序退出，只能退出其所在的线程）
+    handler_check.join().unwrap();
 }
 
 fn main() {
+    // Use CreateMuteA to avoid multi-process
+    let instance = Box::new(SingleInstance::new(PROCESS_ID).unwrap());
+    if !instance.is_single() {
+        panic!("Avoid Multiple.")
+    };
+
     //Init
     let mut path_infos = PathInfos {
-        dir_path: PathBuf::from(BaseDirs::new().unwrap().data_local_dir()).join("SC_starter"),
+        dir_path: PathBuf::from(BaseDirs::new().unwrap().data_local_dir()).join("SC_Starter"),
         exe_path: PathBuf::new(),
         conf_path: PathBuf::new(),
     };
@@ -293,12 +288,6 @@ fn main() {
     let exist_result = check_res_exist(&path_infos);
     //println!("{:?}", &exist_result);
     unzip_res(&path_infos, &exist_result);
-
-    //防止重复
-    let time_file_path = get_time(&path_infos.dir_path);
-    let _time_handler = avoid_multiple(&time_file_path);
-    //下面这行加了反而不行……
-    //time_handler.join().unwrap();
 
     //Default
     let default_setting: Vec<KeyVkGroups> = Vec::from([
@@ -321,8 +310,12 @@ fn main() {
     ]);
     //Read Setting
     let settings = read_config(&path_infos.conf_path, &default_setting);
-    println!("{:?}", &settings);
+    for i in &settings {
+        println!("{:?}", i);
+    }
     //Set Hotkeys
-    let handler = set_hotkeys(&path_infos.exe_path, &path_infos.conf_path, settings);
-    handler.join().unwrap();
+    let _handler_hotkeys = set_hotkeys(&path_infos, settings);
+
+    //防止配置文件被删除
+    avoid_exe_del(&path_infos.exe_path);
 }
