@@ -56,7 +56,7 @@ struct KeyVkGroups {
 }
 impl std::fmt::Display for KeyVkGroups {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "mod keys: {:?}\nvkey: {}\n", self.mod_keys, self.vkey)
+        write!(f, "mod keys: {:?}  vkey: {}", self.mod_keys, self.vkey)
     }
 }
 
@@ -148,26 +148,34 @@ fn set_hotkeys(paths: &PathInfos, key_groups: Vec<KeyVkGroups>) -> JoinHandle<()
     //根据配置文件设置快捷键
     let exe_path = paths.exe_path.to_owned();
     let conf_path = paths.conf_path.to_owned();
-    let key_groups = key_groups.clone();
     thread::spawn(move || {
         let res_path = exe_path.clone();
         let key_groups = key_groups;
         let mut hkm = HotkeyManager::new();
 
-        hkm.register(key_groups[0].vkey, &key_groups[0].mod_keys, move || {
+        let hotkey_1 = hkm.register(key_groups[0].vkey, &key_groups[0].mod_keys, move || {
             operate_exe(&exe_path, 0);
-        })
-        .unwrap();
+        });
+        match hotkey_1 {
+            Ok(_) => (),
+            Err(_) => panic!("Failed reg Hotkey 1."),
+        };
 
-        hkm.register(key_groups[1].vkey, &key_groups[1].mod_keys, move || {
+        let hotkey_2 = hkm.register(key_groups[1].vkey, &key_groups[1].mod_keys, move || {
             operate_exe(&res_path, 1);
-        })
-        .unwrap();
+        });
+        match hotkey_2 {
+            Ok(_) => (),
+            Err(_) => panic!("Failed reg Hotkey 2."),
+        }
 
-        hkm.register(key_groups[2].vkey, &key_groups[2].mod_keys, move || {
+        let hotkey_3 = hkm.register(key_groups[2].vkey, &key_groups[2].mod_keys, move || {
             operate_exe(Path::new(""), 2);
-        })
-        .unwrap();
+        });
+        match hotkey_3 {
+            Ok(_) => (),
+            Err(_) => panic!("Failed reg Hotkey 3."),
+        }
 
         hkm.register(key_groups[3].vkey, &key_groups[3].mod_keys, move || {
             operate_exe(&conf_path, 3);
@@ -181,38 +189,35 @@ fn set_hotkeys(paths: &PathInfos, key_groups: Vec<KeyVkGroups>) -> JoinHandle<()
 fn match_keys(groups: KeyStringGroups) -> (bool, KeyVkGroups) {
     //将字符串类型快捷键从转换为快捷键组合，并返回状态与快捷键组
     let group1 = groups.mod_keys;
-    let group2 = groups.vkey;
+    let group2 = groups.vkey.as_ref();
     let mut results_mod: Vec<ModKey> = Vec::new();
+    let mut status = true;
 
     for i in &group1 {
         let tmp = match ModKey::from_keyname(i) {
             Ok(mod_key) => mod_key,
-            Err(_) => ModKey::NoRepeat,
+            Err(_) => {
+                status = false;
+                ModKey::NoRepeat
+            }
         };
         results_mod.push(tmp);
     }
-    let result_vk = match VKey::from_keyname(&group2.to_ascii_uppercase()) {
+
+    let result_vk = match VKey::from_keyname(group2) {
         Ok(vk_key) => vk_key,
-        Err(_) => VKey::OemClear,
+        Err(_) => {
+            status = false;
+            VKey::OemClear
+        }
     };
 
-    let mut status = true;
-    for i in &results_mod {
-        if *i == ModKey::NoRepeat {
-            status = false;
-        }
-    }
-
-    if result_vk == VKey::OemClear {
-        status = false;
-    }
-
-    let struct_pack = |x: Vec<ModKey>, y: VKey| KeyVkGroups {
+    let struct_pack = move |x: Vec<ModKey>, y: VKey| KeyVkGroups {
         mod_keys: x,
         vkey: y,
     };
-    let temp: KeyVkGroups = struct_pack(results_mod, result_vk);
-    (status, temp)
+
+    (status, struct_pack(results_mod, result_vk))
 }
 
 fn read_config(conf_path: &PathBuf, default_settings: &[KeyVkGroups]) -> Vec<KeyVkGroups> {
@@ -222,7 +227,8 @@ fn read_config(conf_path: &PathBuf, default_settings: &[KeyVkGroups]) -> Vec<Key
     let _ = f.read_to_string(&mut full_content);
     let full_content: Vec<&str> = full_content.split("\n").collect();
     //暴力只取前4行，实际上conf文件后面注释的#号纯粹无用，好看而已（
-    let usefull_content: Vec<&str> = full_content[..4].to_vec();
+    //println!("{:?}",&full_content[0..4]);
+    let usefull_content: Vec<&str> = full_content[0..4].to_vec();
 
     //这个闭包接收两个String然后返回一个包装好的KeyStringGroups类型便于下面解析
     let struct_pack = |x: Vec<String>, y: String| KeyStringGroups {
@@ -235,13 +241,14 @@ fn read_config(conf_path: &PathBuf, default_settings: &[KeyVkGroups]) -> Vec<Key
     for i in usefull_content {
         let sum_keys: Vec<String> = i.split("=").map(String::from).collect();
         let mod_keys: Vec<String> = sum_keys[0].split("+").map(String::from).collect();
+        //println!("{:?}{:?}",sum_keys,mod_keys);
         groups.push(struct_pack(mod_keys, sum_keys[1].clone()));
     }
 
     let mut result_groups: Vec<KeyVkGroups> = Vec::new();
     for (i, j) in groups.into_iter().enumerate() {
         let (status, result) = match_keys(j);
-        //println!("{} {:?}",&status,&result);
+        //println!("status: {} {:?}", &status, &result);
         if status {
             result_groups.push(result);
         } else {
@@ -311,7 +318,7 @@ fn main() {
     //Read Setting
     let settings = read_config(&path_infos.conf_path, &default_setting);
     for i in &settings {
-        println!("{:?}", i);
+        println!("Groups: {}", i);
     }
     //Set Hotkeys
     let _handler_hotkeys = set_hotkeys(&path_infos, settings);
