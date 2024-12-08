@@ -8,7 +8,7 @@ use std::{
     io::Read,
     os::windows::{fs::MetadataExt, process::CommandExt},
     path::{Path, PathBuf},
-    process::{exit, Command},
+    process::Command,
     thread::{self, JoinHandle},
 };
 use windows_hotkeys::{
@@ -91,8 +91,8 @@ fn check_exe_latest(file_path: &Path) -> bool {
     in_size == RES_SIZE
 }
 
+///解压相关资源
 fn unzip_res(paths: &PathInfos, exists: &FileExist) {
-    //解压相关资源
     #[derive(Embed)]
     #[folder = "res/"]
     struct Asset;
@@ -130,7 +130,10 @@ fn operate_exe(path: &Path, mode: usize) {
         1 => {
             let _ = Command::new(path).arg("--pin:clipboard").spawn().unwrap();
         }
-        2 => exit(0),
+        2 => {
+            println!("Exit");
+            std::process::exit(0)
+        }
         3 => {
             let _ = Command::new("explorer.exe").arg(path).spawn().unwrap();
         }
@@ -158,7 +161,10 @@ fn set_hotkeys(paths: &PathInfos, key_groups: Vec<KeyVkGroups>) -> JoinHandle<()
         });
         match hotkey_1 {
             Ok(_) => (),
-            Err(_) => panic!("Failed reg Hotkey 1."),
+            Err(_) => {
+                operate_exe(&conf_path, 3);
+                panic!("Failed reg Hotkey 1.")
+            }
         };
 
         let hotkey_2 = hkm.register(key_groups[1].vkey, &key_groups[1].mod_keys, move || {
@@ -177,10 +183,15 @@ fn set_hotkeys(paths: &PathInfos, key_groups: Vec<KeyVkGroups>) -> JoinHandle<()
             Err(_) => panic!("Failed reg Hotkey 3."),
         }
 
-        hkm.register(key_groups[3].vkey, &key_groups[3].mod_keys, move || {
+        let hotkey_4 = hkm.register(key_groups[3].vkey, &key_groups[3].mod_keys, move || {
             operate_exe(&conf_path, 3);
-        })
-        .unwrap();
+        });
+        match hotkey_4 {
+            Ok(_) => (),
+            Err(_) => {
+                panic!("Failed reg Hotkey 4.")
+            }
+        }
 
         hkm.event_loop();
     })
@@ -299,19 +310,23 @@ fn main() {
     //Default
     let default_setting: Vec<KeyVkGroups> = Vec::from([
         KeyVkGroups {
-            mod_keys: Vec::from([ModKey::Win, ModKey::Alt]),
-            vkey: VKey::V,
+            //PrintScreen
+            mod_keys: Vec::from([ModKey::Win, ModKey::Alt, ModKey::Ctrl]),
+            vkey: VKey::P,
         },
         KeyVkGroups {
-            mod_keys: Vec::from([ModKey::Win, ModKey::Alt]),
+            //Pin
+            mod_keys: Vec::from([ModKey::Win, ModKey::Alt, ModKey::Ctrl]),
             vkey: VKey::C,
         },
         KeyVkGroups {
+            //Exit
             mod_keys: Vec::from([ModKey::Win, ModKey::Ctrl, ModKey::Shift]),
             vkey: VKey::Escape,
         },
         KeyVkGroups {
-            mod_keys: Vec::from([ModKey::Ctrl, ModKey::Alt]),
+            //OpenSettings
+            mod_keys: Vec::from([ModKey::Win, ModKey::Alt, ModKey::Ctrl]),
             vkey: VKey::O,
         },
     ]);
