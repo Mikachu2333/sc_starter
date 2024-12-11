@@ -169,7 +169,7 @@ fn operate_exe(path: &Path, mode: usize, dir: &PathBuf) {
             std::thread::sleep(std::time::Duration::from_secs(3));
             let _ = MessageDialog::new()
                 .set_title("Info")
-                .set_text("Please restart the program.")
+                .set_text("Please restart the program to apply your custom settings.")
                 .set_type(native_dialog::MessageType::Info)
                 .reset_owner()
                 .show_alert();
