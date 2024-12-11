@@ -1,12 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 extern crate single_instance;
-use directories::BaseDirs;
+use native_dialog::MessageDialog;
 use rust_embed::*;
 use single_instance::SingleInstance;
 use std::{
     fs::{self, File},
     io::Read,
-    os::windows::{fs::MetadataExt, process::CommandExt},
+    os::windows::fs::MetadataExt,
     path::{Path, PathBuf},
     process::Command,
     thread::{self, JoinHandle},
@@ -27,6 +27,12 @@ struct FileExist {
     exe_exist: bool,
     exe_latest: bool,
     conf_exist: bool,
+}
+
+#[derive(Clone, Debug)]
+struct SettingsCollection {
+    keys_collection: Vec<KeyVkGroups>,
+    path: PathBuf,
 }
 
 #[derive(Clone, Debug)]
@@ -107,88 +113,126 @@ fn unzip_res(paths: &PathInfos, exists: &FileExist) {
     if !exists.conf_exist {
         let _ = fs::write(&paths.conf_path, config_res.data.as_ref());
         println!("Release config file.");
-        operate_exe(&paths.conf_path, 3);
-        operate_exe(Path::new(""), 4);
-        operate_exe(Path::new(""), 2);
+        operate_exe(&paths.conf_path, 3, &PathBuf::new());
+        operate_exe(Path::new(""), 4, &PathBuf::new());
+        operate_exe(Path::new(""), 2, &PathBuf::new());
     } else {
         println!("No need to release.");
     }
 }
 
-fn operate_exe(path: &Path, mode: usize) {
-    // 实际操作程序
-    // 0 -> 运行截屏
-    // 1 -> 钉图
-    // 2 -> 退出
-    // 3 -> 打开设置文件
-    // 4 -> 3s后提示重启
-    // ... -> panic
+/// 实际操作程序
+///
+/// 0 -> 运行截屏         1 -> 钉图
+///
+/// 2 -> 退出             3 -> 打开设置文件
+///
+/// 4 -> 3s后提示重启     ... -> panic
+fn operate_exe(path: &Path, mode: usize, dir: &PathBuf) {
     match mode {
         0 => {
-            let _ = Command::new(path).spawn().unwrap();
+            let temp = format!("--dir:\"{}\"", dir.to_str().unwrap());
+            if dir != &PathBuf::new() {
+                println!("{}", temp);
+                let _ = Command::new(path).arg(temp).spawn();
+            } else {
+                let _ = Command::new(path).spawn();
+            }
         }
         1 => {
-            let _ = Command::new(path).arg("--pin:clipboard").spawn().unwrap();
+            let _ = Command::new(path).arg("--pin:clipboard").spawn();
         }
         2 => {
             println!("Exit");
+            let _ = MessageDialog::new()
+                .set_title("Exit")
+                .set_text("Exit.")
+                .set_type(native_dialog::MessageType::Info)
+                .reset_owner()
+                .show_alert();
             std::process::exit(0)
         }
         3 => {
-            let _ = Command::new("explorer.exe").arg(path).spawn().unwrap();
+            match Command::new("notepad.exe").arg(path).spawn() {
+                Ok(_) => (),
+                Err(_) => {
+                    let _ = MessageDialog::new()
+                        .set_title("Error")
+                        .set_text("Error to open the setting file with notepad.")
+                        .set_type(native_dialog::MessageType::Error)
+                        .reset_owner()
+                        .show_alert();
+                }
+            };
         }
         4 => {
             std::thread::sleep(std::time::Duration::from_secs(3));
-            let _output: Result<std::process::Child, std::io::Error> = Command::new("mshta.exe")
-                .raw_arg(r#"vbscript:Execute("msgbox ""Please Restart SC_Starter"" :close")"#)
-                .spawn();
+            let _ = MessageDialog::new()
+                .set_title("Info")
+                .set_text("Please restart the program.")
+                .set_type(native_dialog::MessageType::Info)
+                .reset_owner()
+                .show_alert();
         }
         _ => panic!("Error arg!"),
     }
 }
 
-fn set_hotkeys(paths: &PathInfos, key_groups: Vec<KeyVkGroups>) -> JoinHandle<()> {
-    //根据配置文件设置快捷键
+///根据配置文件设置快捷键
+fn set_hotkeys(paths: &PathInfos, settings_collected: SettingsCollection) -> JoinHandle<()> {
     let exe_path = paths.exe_path.to_owned();
     let conf_path = paths.conf_path.to_owned();
+    let dir = settings_collected.path.clone();
     thread::spawn(move || {
         let res_path = exe_path.clone();
-        let key_groups = key_groups;
+        let key_groups = settings_collected.keys_collection;
         let mut hkm = HotkeyManager::new();
 
+        //截屏
         let hotkey_1 = hkm.register(key_groups[0].vkey, &key_groups[0].mod_keys, move || {
-            operate_exe(&exe_path, 0);
+            operate_exe(&exe_path, 0, &dir);
         });
         match hotkey_1 {
             Ok(_) => (),
             Err(_) => {
-                operate_exe(&conf_path, 3);
+                operate_exe(&conf_path, 3, &PathBuf::new());
                 panic!("Failed reg Hotkey 1.")
             }
         };
 
+        //钉图
         let hotkey_2 = hkm.register(key_groups[1].vkey, &key_groups[1].mod_keys, move || {
-            operate_exe(&res_path, 1);
+            operate_exe(&res_path, 1, &PathBuf::new());
         });
         match hotkey_2 {
             Ok(_) => (),
-            Err(_) => panic!("Failed reg Hotkey 2."),
+            Err(_) => {
+                operate_exe(&conf_path, 3, &PathBuf::new());
+                panic!("Failed reg Hotkey 2.")
+            }
         }
 
+        //退出
         let hotkey_3 = hkm.register(key_groups[2].vkey, &key_groups[2].mod_keys, move || {
-            operate_exe(Path::new(""), 2);
+            operate_exe(Path::new(""), 2, &PathBuf::new());
         });
         match hotkey_3 {
             Ok(_) => (),
-            Err(_) => panic!("Failed reg Hotkey 3."),
+            Err(_) => {
+                operate_exe(&conf_path, 3, &PathBuf::new());
+                panic!("Failed reg Hotkey 3.")
+            }
         }
 
+        //3s重启
+        let conf_path_clone = conf_path.clone();
         let hotkey_4 = hkm.register(key_groups[3].vkey, &key_groups[3].mod_keys, move || {
-            operate_exe(&conf_path, 3);
+            operate_exe(&conf_path.clone(), 3, &PathBuf::new());
         });
         match hotkey_4 {
             Ok(_) => (),
             Err(_) => {
+                operate_exe(&conf_path_clone, 3, &PathBuf::new());
                 panic!("Failed reg Hotkey 4.")
             }
         }
@@ -197,6 +241,7 @@ fn set_hotkeys(paths: &PathInfos, key_groups: Vec<KeyVkGroups>) -> JoinHandle<()
     })
 }
 
+///将string匹配为vk值
 fn match_keys(groups: KeyStringGroups) -> (bool, KeyVkGroups) {
     //将字符串类型快捷键从转换为快捷键组合，并返回状态与快捷键组
     let group1 = groups.mod_keys;
@@ -231,15 +276,34 @@ fn match_keys(groups: KeyStringGroups) -> (bool, KeyVkGroups) {
     (status, struct_pack(results_mod, result_vk))
 }
 
-fn read_config(conf_path: &PathBuf, default_settings: &[KeyVkGroups]) -> Vec<KeyVkGroups> {
+///读取配置，出问题了就从default里面取
+fn read_config(conf_path: &PathBuf, default_settings: &SettingsCollection) -> SettingsCollection {
     //读取配置
     let mut f = File::open(conf_path).unwrap();
     let mut full_content = String::new();
     let _ = f.read_to_string(&mut full_content);
     let full_content: Vec<&str> = full_content.split("\n").collect();
-    //暴力只取前4行，实际上conf文件后面注释的#号纯粹无用，好看而已（
+    //暴力只取前5行，实际上conf文件后面注释的#号纯粹无用，好看而已（
     //println!("{:?}",&full_content[0..4]);
-    let usefull_content: Vec<&str> = full_content[0..4].to_vec();
+    //println!("{:?}",&full_content[5]);
+    let useful_content: Vec<&str> = full_content[0..4].to_vec();
+    let mut useful_path = full_content[4]
+        .to_string()
+        .replace("'", "")
+        .replace("\"", "") //引号删了
+        .replace("\\", "/") //反斜杠转换为斜杠
+        .replace("//", "/");
+    while useful_path.starts_with(" ") || useful_path.ends_with(" ") || useful_path.ends_with("/") {
+        //删除所有开头和结尾的空格
+        useful_path = useful_path
+            .strip_prefix(" ")
+            .unwrap()
+            .strip_prefix(" ")
+            .unwrap()
+            .strip_suffix("/")
+            .unwrap()
+            .to_string();
+    }
 
     //这个闭包接收两个String然后返回一个包装好的KeyStringGroups类型便于下面解析
     let struct_pack = |x: Vec<String>, y: String| KeyStringGroups {
@@ -249,7 +313,7 @@ fn read_config(conf_path: &PathBuf, default_settings: &[KeyVkGroups]) -> Vec<Key
 
     //4个配置得到4个group，再整合成一个groups
     let mut groups: Vec<KeyStringGroups> = Vec::new();
-    for i in usefull_content {
+    for i in useful_content {
         let sum_keys: Vec<String> = i.split("=").map(String::from).collect();
         let mod_keys: Vec<String> = sum_keys[0].split("+").map(String::from).collect();
         //println!("{:?}{:?}",sum_keys,mod_keys);
@@ -263,24 +327,57 @@ fn read_config(conf_path: &PathBuf, default_settings: &[KeyVkGroups]) -> Vec<Key
         if status {
             result_groups.push(result);
         } else {
-            result_groups.push(default_settings[i].clone());
+            result_groups.push(default_settings.keys_collection[i].clone());
         }
     }
 
-    result_groups
+    let path_result: PathBuf = match &useful_path[..] {
+        "&" => PathBuf::new(),
+        "@" => directories::UserDirs::new()
+            .unwrap()
+            .desktop_dir()
+            .unwrap()
+            .to_path_buf(),
+        "*" => directories::UserDirs::new()
+            .unwrap()
+            .picture_dir()
+            .unwrap()
+            .to_path_buf(),
+        x => {
+            let temp = PathBuf::from(x);
+            if !temp.exists() {
+                default_settings.path.clone()
+            } else {
+                temp
+            }
+        }
+    };
+
+    SettingsCollection {
+        keys_collection: result_groups,
+        path: path_result,
+    }
 }
 
-fn avoid_exe_del(conf_path: &Path) {
-    let path = conf_path.to_owned();
+///避免exe文件被故意删除导致崩溃
+fn avoid_exe_del(paths: &PathInfos) {
+    let path1 = paths.conf_path.to_owned();
+    let path2 = paths.exe_path.to_owned();
     let handler_check = thread::spawn(move || {
         loop {
-            if path.exists() {
+            if path1.exists() && path2.exists() {
                 std::thread::sleep(std::time::Duration::from_secs(5));
             } else {
                 break;
             }
         }
-        panic!("Config file not found.");
+        let _ = MessageDialog::new()
+            .set_title("Error")
+            .set_text("File not found")
+            .set_type(native_dialog::MessageType::Error)
+            .reset_owner()
+            .show_alert();
+        panic!("File not found.");
     });
     //阻塞运行时间最长的那个（panic无法使整个程序退出，只能退出其所在的线程）
     handler_check.join().unwrap();
@@ -290,12 +387,19 @@ fn main() {
     // Use CreateMuteA to avoid multi-process
     let instance = Box::new(SingleInstance::new(PROCESS_ID).unwrap());
     if !instance.is_single() {
-        panic!("Avoid Multiple.")
+        let _ = MessageDialog::new()
+            .set_title("Wanring")
+            .set_text("Avoid Multiple.")
+            .set_type(native_dialog::MessageType::Warning)
+            .reset_owner()
+            .show_alert();
+        panic!("Multiple")
     };
 
     //Init
     let mut path_infos = PathInfos {
-        dir_path: PathBuf::from(BaseDirs::new().unwrap().data_local_dir()).join("SC_Starter"),
+        dir_path: PathBuf::from(directories::BaseDirs::new().unwrap().data_local_dir())
+            .join("SC_Starter"),
         exe_path: PathBuf::new(),
         conf_path: PathBuf::new(),
     };
@@ -308,7 +412,7 @@ fn main() {
     unzip_res(&path_infos, &exist_result);
 
     //Default
-    let default_setting: Vec<KeyVkGroups> = Vec::from([
+    let default_key_setting: Vec<KeyVkGroups> = Vec::from([
         KeyVkGroups {
             //PrintScreen
             mod_keys: Vec::from([ModKey::Win, ModKey::Alt, ModKey::Ctrl]),
@@ -330,14 +434,20 @@ fn main() {
             vkey: VKey::O,
         },
     ]);
+    let default_setting = SettingsCollection {
+        keys_collection: default_key_setting,
+        path: PathBuf::new(),
+    };
+
     //Read Setting
     let settings = read_config(&path_infos.conf_path, &default_setting);
-    for i in &settings {
+    for i in &settings.keys_collection {
         println!("Groups: {}", i);
     }
+    println!("Dir: {:?}", &settings.path);
     //Set Hotkeys
     let _handler_hotkeys = set_hotkeys(&path_infos, settings);
 
-    //防止配置文件被删除
-    avoid_exe_del(&path_infos.exe_path);
+    //防止程序被删除
+    avoid_exe_del(&path_infos);
 }
