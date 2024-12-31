@@ -287,23 +287,11 @@ fn read_config(conf_path: &PathBuf, default_settings: &SettingsCollection) -> Se
     //println!("{:?}",&full_content[0..4]);
     //println!("{:?}",&full_content[5]);
     let useful_content: Vec<&str> = full_content[0..4].to_vec();
-    let mut useful_path = full_content[4]
-        .to_string()
-        .replace("'", "")
-        .replace("\"", "") //引号删了
-        .replace("\\", "/") //反斜杠转换为斜杠
-        .replace("//", "/");
-    while useful_path.starts_with(" ") || useful_path.ends_with(" ") || useful_path.ends_with("/") {
-        //删除所有开头和结尾的空格
-        useful_path = useful_path
-            .strip_prefix(" ")
-            .unwrap()
-            .strip_prefix(" ")
-            .unwrap()
-            .strip_suffix("/")
-            .unwrap()
-            .to_string();
-    }
+    let useful_path = {
+        let temp = full_content[4].replace("\\", "/").replace("//", "/");
+        temp.trim_matches(['\\', '/', '\n', '\r', '"', '\'', ' ', '\t'])
+            .to_string()
+    };
 
     //这个闭包接收两个String然后返回一个包装好的KeyStringGroups类型便于下面解析
     let struct_pack = |x: Vec<String>, y: String| KeyStringGroups {
