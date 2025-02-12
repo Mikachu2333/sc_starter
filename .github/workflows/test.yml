@@ -26,6 +26,10 @@ jobs:
       
       - name: Setup Rust Toolchain
         uses: crusty-pie/toolchain@v1.0.8
+        with: 
+            targets: x86_64-pc-windows-gnu
+            default: true
+            override: true
         
       - name: Build
         run: cargo build --release
