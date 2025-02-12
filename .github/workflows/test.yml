@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Setup Rust Toolchain
-        uses: crusty-pie/toolchain@latest
+        uses: crusty-pie/toolchain@v1.0.8
         
       - name: Build
         run: cargo build --release
