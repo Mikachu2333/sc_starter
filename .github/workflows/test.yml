@@ -1,1 +1,40 @@
+name: test
 
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - ".gitignore"
+      - "**.md"
+      - "LICENSE"
+  pull_request:
+    paths-ignore:
+      - ".gitignore"
+      - "**.md"
+      - "LICENSE**"
+    types:
+      - opened
+      - synchronize
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@latest
+      
+      - name: Setup Rust Toolchain
+        uses: crusty-pie/toolchain@latest
+        
+      - name: Build
+        run: cargo build --release
+      
+      - name: Create release
+        uses: actions/upload-artifact@v4
+        with:
+          name: released_exe
+          path: |
+            target/release/SC_starter.exe
+          if-no-files-found: error
+          compression-level: 0
