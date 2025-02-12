@@ -22,7 +22,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@latest
+      - uses: actions/checkout@v4
       
       - name: Setup Rust Toolchain
         uses: crusty-pie/toolchain@latest
