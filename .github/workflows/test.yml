@@ -27,18 +27,18 @@ jobs:
       - name: Setup Rust Toolchain
         uses: crusty-pie/toolchain@v1.0.8
         with: 
-            targets: x86_64-win7-windows-gnu
+            targets: x86_64-pc-windows-gnu
             default: true
             override: true
         
       - name: Build
-        run: cargo build --release
+        run: cargo build --release  --target=x86_64-win7-windows-gnu
       
       - name: Create release
         uses: actions/upload-artifact@v4
         with:
           name: released_exe
           path: |
-            target/release/SC_starter.exe
+            target/x86_64-pc-windows-gnu/release/SC_starter.exe
           if-no-files-found: error
           compression-level: 0
