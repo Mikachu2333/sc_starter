@@ -39,6 +39,6 @@ jobs:
         with:
           name: released_exe
           path: |
-            target/x86_64-pc-windows-gnu/release/SC_starter.exe
+            target/release/SC_starter.exe
           if-no-files-found: error
           compression-level: 0
