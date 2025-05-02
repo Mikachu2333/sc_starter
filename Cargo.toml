@@ -1,21 +1,17 @@
 [package]
-name    = "SC_Starter"
-version = "1.9.2"
+name = "SC_Starter"
+version = "2.0.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [profile.release]
-lto           = true
+strip = true
+lto = true
 codegen-units = 1
-opt-level     = "z"
-strip         = true
-panic         = "abort"
+panic = "abort"
 
 [dependencies]
-directories = "5.0.1"
-native-dialog = "0.7.0"
-rust-embed = { version = "8.5.0", default-features = false, features = [
-    "compression",
-] }
+directories = "6.0.0"
+rust-embed = { version = "8.7.0", features = ["compression"] }
 single-instance = "0.3.3"
 windows-hotkeys = "0.2.1"
+rust-ini = "0.21.1"
