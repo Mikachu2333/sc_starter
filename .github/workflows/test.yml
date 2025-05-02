@@ -32,7 +32,7 @@ jobs:
             override: true
         
       - name: Build
-        run: cargo build --release  --target=x86_64-win7-windows-gnu
+        run: cargo build --release
       
       - name: Create release
         uses: actions/upload-artifact@v4
