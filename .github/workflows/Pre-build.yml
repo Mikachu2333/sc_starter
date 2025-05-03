@@ -30,15 +30,15 @@ jobs:
         uses: crusty-pie/toolchain@v1.0.8
         with:
           toolchain: stable
-          targets: x86_64-pc-windows-msvc
+          targets: x86_64-pc-windows-gnu
           default: true
           override: true
 
       - name: Build
-        run: cargo build -r --target=x86_64-pc-windows-msvc
+        run: cargo b -r
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: Preview
-          path: ./target/x86_64-pc-windows-msvc/release/SC_Starter.exe
+          path: ./target/release/SC_Starter.exe
