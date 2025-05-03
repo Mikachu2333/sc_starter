@@ -64,11 +64,7 @@ fn main() {
     print!("{}", &settings);
 
     // 创建托盘图标管理器
-    let tray_manager = TrayManager::new(
-        path_infos.exe_path.clone(),
-        settings.path.clone(),
-        settings.time.clone(),
-    );
+    let tray_manager = TrayManager::new();
 
     // 获取托盘图标事件接收器
     let event_receiver = tray_manager.run();
