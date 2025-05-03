@@ -1,5 +1,5 @@
 //! 文件操作模块
-//! 
+//!
 //! 本模块负责：
 //! - 检查和保护核心文件
 //! - 处理文件操作请求
@@ -23,13 +23,13 @@ use std::{
 const RES_SIZE: u64 = 8613888;
 
 /// 检查所需文件是否存在及其状态
-/// 
+///
 /// ### 参数
 /// - `infos`: 包含程序所需的所有路径信息
-/// 
+///
 /// ### 返回值
 /// - `FileExist`: 包含文件状态的结构体
-/// 
+///
 /// ### 说明
 /// - 检查exe文件是否存在
 /// - 检查exe文件是否为最新版本
@@ -102,12 +102,12 @@ pub fn unzip_res(paths: &PathInfos, exists: &FileExist) {
 }
 
 /// 程序操作控制函数
-/// 
+///
 /// ### 参数
 /// - `path`: 要操作的程序路径
 /// - `mode`: 操作模式
 /// - `save_path`: 指定的保存路径
-/// 
+///
 /// ### 操作模式
 /// - `sc`: 普通截屏
 /// - `sct`: 带时间戳的截屏
@@ -118,10 +118,11 @@ pub fn unzip_res(paths: &PathInfos, exists: &FileExist) {
 pub fn operate_exe(path: &Path, mode: &str, save_path: &PathBuf) {
     match mode {
         "sc" => {
-            let temp = format!("--dir:\"{}\"", save_path.to_str().unwrap());
             if save_path != &PathBuf::new() {
                 //println!("{}", temp);
-                let _ = Command::new(path).raw_arg(temp).spawn();
+                let _ = Command::new(path)
+                    .raw_arg(format!("--dir:\"{}\"", save_path.to_str().unwrap()))
+                    .spawn();
             } else {
                 let _ = Command::new(path).spawn();
             }
@@ -142,9 +143,14 @@ pub fn operate_exe(path: &Path, mode: &str, save_path: &PathBuf) {
             let _ = Command::new(path).raw_arg("--pin:clipboard").spawn();
         }
         "exit" => {
-            println!("Exit");
+            println!("Preparing to exit...");
+            // 使用异步方式显示消息，避免阻塞
             let _ = std::process::Command::new("mshta")
-            .raw_arg("\"javascript:var sh=new ActiveXObject('WScript.Shell'); sh.Popup('Exit',3,'Info',64);close()\"").spawn();
+                .raw_arg("\"javascript:var sh=new ActiveXObject('WScript.Shell'); sh.Popup('Exit',1,'Info',64);close()\"")
+                .spawn();
+
+            // 给一个短暂的延时让消息显示出来
+            std::thread::sleep(std::time::Duration::from_millis(100));
             std::process::exit(0)
         }
         "conf" => {
@@ -167,15 +173,15 @@ pub fn operate_exe(path: &Path, mode: &str, save_path: &PathBuf) {
 }
 
 /// 监控并保护核心文件
-/// 
+///
 /// ### 参数
 /// - `paths`: 包含所有需要保护的文件路径
-/// 
+///
 /// ### 功能
 /// - 持续监控核心文件状态
 /// - 文件丢失时自动恢复
 /// - 恢复失败时提示用户
-pub fn avoid_exe_del(paths: &PathInfos) {
+pub fn avoid_exe_del(paths: &PathInfos) -> Arc<AtomicBool> {
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
 
@@ -208,6 +214,7 @@ pub fn avoid_exe_del(paths: &PathInfos) {
 
     // 创建处理线程
     let paths_clone = paths.clone();
+    let r2 = running.clone();
     thread::spawn(move || {
         while let Ok(()) = rx_lost.recv() {
             println!("Attempting to recover files...");
@@ -228,6 +235,8 @@ pub fn avoid_exe_del(paths: &PathInfos) {
             }
         }
     });
+
+    r2
 }
 
 fn get_current_time() -> String {

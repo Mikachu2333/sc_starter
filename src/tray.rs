@@ -1,12 +1,14 @@
 use std::path::PathBuf;
 use tray_icon::{Icon, TrayIconBuilder, TrayIconEvent};
 
-use crate::file_ops::operate_exe;
-
 pub struct TrayManager {
-    _tray_icon: tray_icon::TrayIcon,
+    #[allow(dead_code)]
+    tray_icon: tray_icon::TrayIcon,
+    #[allow(dead_code)]
     exe_path: PathBuf,
+    #[allow(dead_code)]
     save_path: PathBuf,
+    #[allow(dead_code)]
     time_enabled: bool,
 }
 
@@ -23,24 +25,20 @@ impl TrayManager {
             .unwrap();
 
         Self {
-            _tray_icon: tray_icon,
+            tray_icon,
             exe_path,
             save_path,
             time_enabled,
         }
     }
 
-    pub fn run(&self) -> std::thread::JoinHandle<()> {
-        let exe_path = self.exe_path.clone();
-        let save_path = self.save_path.clone();
-        let time_enabled = self.time_enabled;
-        println!("托盘图标已创建");
-        std::thread::spawn(move || {
-            // 使用循环持续接收事件
-            println!("托盘图标已创建，等待事件...");
-            while let Ok(event) = TrayIconEvent::receiver().try_recv() {
-                println!("{:?}", event);
-            }
-        })
+    // 简化run方法，只返回事件接收器
+    pub fn run(&self) -> tray_icon::TrayIconEventReceiver {
+        TrayIconEvent::receiver().to_owned()
+    }
+}
+impl Drop for TrayManager {
+    fn drop(&mut self) {
+        self.tray_icon.set_visible(false).ok();
     }
 }

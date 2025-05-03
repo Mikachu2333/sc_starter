@@ -1,6 +1,6 @@
 [package]
 name = "SC_Starter"
-version = "2.1.0"
+version = "2.2.0"
 edition = "2021"
 
 [profile.release]
@@ -16,4 +16,5 @@ single-instance = "0.3.3"
 windows-hotkeys = "0.2.1"
 rust-ini = "0.21.1"
 chrono = "0.4.41"
-#tray-icon = { version = "0.20.1"}
+tray-icon = "0.20.1"
+tao = "0.33.0"

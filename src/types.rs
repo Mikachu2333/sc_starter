@@ -59,7 +59,9 @@ impl std::fmt::Display for PathInfos {
         write!(
             f,
             "\n************\nRoot Dir:\t{}\nProcess Path:\t{}\nConf Path:\t{}\n************\n",
-            self.dir_path.display(), self.exe_path.display(), self.conf_path.display()
+            self.dir_path.display(),
+            self.exe_path.display(),
+            self.conf_path.display()
         )
     }
 }

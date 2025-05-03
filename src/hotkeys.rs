@@ -1,12 +1,13 @@
 //! 快捷键管理模块
-//! 
+//!
 //! 本模块负责：
 //! - 注册全局快捷键
 //! - 处理快捷键事件
 //! - 管理快捷键线程
 
 use crate::file_ops::operate_exe;
-use crate::types::{KeyStringGroups, KeyVkGroups, PathInfos, SettingsCollection};
+use crate::types::{KeyStringGroups, KeyVkGroups, SettingsCollection};
+use std::sync::mpsc;
 use std::thread;
 use std::{path::PathBuf, thread::JoinHandle};
 use windows_hotkeys::{
@@ -15,92 +16,71 @@ use windows_hotkeys::{
     HotkeyManagerImpl,
 };
 
-/// 根据配置设置全局快捷键
-/// 
-/// ### 参数
-/// - `paths`: 包含程序路径信息的结构体
-/// - `settings_collected`: 包含快捷键设置的结构体
-/// 
-/// ### 返回值
-/// - `JoinHandle<()>`: 快捷键监听线程的句柄
-/// 
-/// ### 功能
-/// - 注册四组全局快捷键
-/// - 设置对应的处理函数
-/// - 启动事件循环
-pub fn set_hotkeys(paths: &PathInfos, settings_collected: SettingsCollection) -> JoinHandle<()> {
-    let exe_path = paths.exe_path.to_owned();
-    let conf_path = paths.conf_path.to_owned();
-    let save_path = settings_collected.path.to_path_buf();
+/// 设置全局快捷键并返回事件发送器
+pub fn set_hotkeys(
+    settings_collected: &SettingsCollection,
+) -> (JoinHandle<()>, mpsc::Receiver<&'static str>) {
+    let settings_collected = settings_collected.clone().to_owned();
 
-    thread::spawn(move || {
-        let res_path = exe_path.clone();
+    // 创建channel用于发送热键事件
+    let (tx, rx) = mpsc::channel();
+
+    let handle = thread::spawn(move || {
         let key_groups = settings_collected.keys_collection;
         let mut hkm = HotkeyManager::new();
 
         // 注册截屏快捷键
-        // 触发时执行operate_exe函数
+        let tx_sc = tx.clone();
         let hotkey_sc = hkm.register(key_groups[0].vkey, &key_groups[0].mod_keys, move || {
-            if settings_collected.time {
-                operate_exe(&res_path, "sct", &save_path);
-            } else {
-                operate_exe(&res_path, "sc", &save_path);
-            }
+            tx_sc.send("sc_unchecked").unwrap();
         });
         match hotkey_sc {
             Ok(_) => (),
-            Err(_) => {
-                panic!("Failed reg Hotkey for sc.")
-            }
+            Err(_) => panic!("Failed reg Hotkey for sc."),
         };
 
         // 注册钉图快捷键
-        // 触发时执行operate_exe函数，参数mode=1表示钉图操作
-        let res_path = exe_path.clone();
+        let tx_pin = tx.clone();
         let hotkey_pin = hkm.register(key_groups[1].vkey, &key_groups[1].mod_keys, move || {
-            operate_exe(&res_path, "pin", &PathBuf::new());
+            tx_pin.send("pin").unwrap();
         });
         match hotkey_pin {
             Ok(_) => (),
-            Err(_) => {
-                panic!("Failed reg Hotkey 2.")
-            }
-        }
+            Err(_) => panic!("Failed reg Hotkey 2."),
+        };
 
         // 注册设置快捷键
-        // 触发时执行operate_exe函数，参数
+        let tx_conf = tx.clone();
         let hotkey_conf = hkm.register(key_groups[3].vkey, &key_groups[3].mod_keys, move || {
-            operate_exe(&conf_path, "conf", &PathBuf::new());
+            tx_conf.send("conf").unwrap();
         });
         match hotkey_conf {
             Ok(_) => (),
-            Err(_) => {
-                panic!("Failed reg Hotkey conf.")
-            }
-        }
+            Err(_) => panic!("Failed reg Hotkey conf."),
+        };
 
         // 注册退出快捷键
-        // 触发时执行operate_exe函数，参数mode=2表示退出操作
+        let tx_exit = tx.clone();
         let hotkey_exit = hkm.register(key_groups[2].vkey, &key_groups[2].mod_keys, move || {
-            operate_exe(std::path::Path::new(""), "exit", &PathBuf::new());
+            tx_exit.send("exit").unwrap();
         });
         match hotkey_exit {
             Ok(_) => (),
-            Err(_) => {
-                panic!("Failed reg Hotkey 3.")
-            }
-        }
+            Err(_) => panic!("Failed reg Hotkey 3."),
+        };
 
-        // 启动事件循环，监听快捷键
+        // 启动事件循环
         hkm.event_loop();
-    })
+    });
+
+    (handle, rx)
 }
 
 /// 将快捷键配置字符串转换为系统可用的按键组合
-/// 
+///
 /// ### 参数
 /// - `groups`: 包含按键字符串的结构体
-/// 
+///
 /// ### 返回值
 /// - `(bool, KeyVkGroups)`: 转换状态和结果
 /// - 第一个值表示转换是否成功
@@ -139,4 +119,19 @@ pub fn match_keys(groups: &KeyStringGroups) -> (bool, KeyVkGroups) {
     };
 
     (status, struct_pack(results_mod, result_vk))
+}
+
+/// 根据是否需要时间参数来执行不同的命令模式
+///
+/// ### Arguments
+///
+/// * `exe_path` - 一个指向可执行文件路径的引用，用于指定需要操作的程序
+/// * `is_time` - 一个布尔值，用于决定是否添加时间参数到文件名
+/// * `final_path` - 一个指向最终路径的引用，用于指定命令执行后的结果路径
+pub fn sc_mode(exe_path: &PathBuf, is_time: bool, final_path: &PathBuf) {
+    if is_time {
+        operate_exe(&exe_path, "sct", &final_path);
+    } else {
+        operate_exe(&exe_path, "sc", &final_path);
+    }
 }

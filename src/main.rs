@@ -3,18 +3,26 @@
 mod config;
 mod file_ops;
 mod hotkeys;
-//mod tray;
+mod tray;
 mod types;
 
 use crate::config::*;
 use crate::file_ops::*;
 use crate::hotkeys::*;
-//use crate::tray::*;
+use crate::tray::*;
 use crate::types::*;
 
 use single_instance;
 use single_instance::SingleInstance;
-use std::{os::windows::process::CommandExt, path::PathBuf};
+use std::{
+    os::windows::process::CommandExt,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
+use tao::event_loop::EventLoop;
+use tray_icon::MouseButton;
+use tray_icon::MouseButtonState;
+use tray_icon::TrayIconEvent;
 
 /// 随机生成的GUID，用于程序单例检测
 /// 防止程序多开造成快捷键冲突
@@ -53,27 +61,100 @@ fn main() {
     // 读取配置文件
     // 包含快捷键设置和截图保存路径
     let settings = read_config(&path_infos.conf_path);
-    print!("{}", settings);
+    print!("{}", &settings);
 
-    /*
-    // 创建并运行托盘图标
+    // 创建托盘图标管理器
     let tray_manager = TrayManager::new(
         path_infos.exe_path.clone(),
         settings.path.clone(),
-        settings.time,
+        settings.time.clone(),
     );
-    let tray_handler = tray_manager.run();
-     */
+
+    // 获取事件接收器
+    let event_receiver = tray_manager.run();
+
+    // 创建共享状态
+    let running = Arc::new(Mutex::new(true));
+    let running_clone = running.clone();
+
+    // 创建事件循环
+    let event_loop = EventLoop::new();
+
+    // 托盘事件处理线程
+    let exe_path = path_infos.exe_path.clone();
+    let save_path = settings.path.clone();
+    let time_enabled = settings.time;
+
+    let event_handler = std::thread::spawn(move || {
+        while let Ok(event) = event_receiver.recv() {
+            if !*running_clone.lock().unwrap() {
+                break;
+            }
+
+            match event {
+                TrayIconEvent::DoubleClick { button, .. } => {
+                    if button == MouseButton::Left {
+                        sc_mode(&exe_path, time_enabled, &save_path);
+                    }
+                }
+                TrayIconEvent::Click {
+                    button,
+                    button_state,
+                    ..
+                } => {
+                    if button_state == MouseButtonState::Down {
+                        if button == MouseButton::Right {
+                            // 退出程序
+                            *running_clone.lock().unwrap() = false;
+                            operate_exe(&PathBuf::new(), "exit", &PathBuf::new());
+                            break;
+                        } else {
+                            sc_mode(&exe_path, time_enabled, &save_path);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    });
 
     // 设置系统全局快捷键
-    let handler_hotkeys = set_hotkeys(&path_infos, settings);
-
-    // 等待热键线程结束
-    handler_hotkeys.join().unwrap();
-
-    // 等待托盘线程结束
-    //tray_handler.join().unwrap();
+    let (handler_hotkeys, hotkey_receiver) = set_hotkeys(&settings);
+    let handler_hotkeys = Arc::new(Mutex::new(Some(handler_hotkeys))); // 包装为 Arc + Mutex + Option
 
     // 启动文件监控
     avoid_exe_del(&path_infos);
+
+    // 运行事件循环
+    let exe_path = path_infos.exe_path.clone();
+    let save_path = settings.path.clone();
+    let time_enabled = settings.time.clone();
+    event_loop.run(move |_event, _, control_flow| {
+        // 检查热键事件
+        if let Ok(hotkey_event) = hotkey_receiver.try_recv() {
+            match hotkey_event {
+                "sc_unchecked" => sc_mode(&exe_path, time_enabled, &save_path),
+                "pin" => operate_exe(&exe_path, "pin", &PathBuf::new()),
+                "conf" => operate_exe(&path_infos.conf_path, "conf", &PathBuf::new()),
+                "exit" => {
+                    *running.lock().unwrap() = false;
+                    operate_exe(&PathBuf::new(), "exit", &PathBuf::new());
+                }
+                _ => {}
+            }
+        }
+
+        if !*running.lock().unwrap() || event_handler.is_finished() {
+            // 取出 handler_hotkeys 并 join
+            if let Some(handle) = Arc::clone(&handler_hotkeys).lock().unwrap().take() {
+                if let Ok(_) = handle.join() {
+                    println!("Hotkey handler thread terminated.");
+                }
+            }
+            // 确保所有资源都被清理
+            *control_flow = tao::event_loop::ControlFlow::Exit;
+        } else {
+            *control_flow = tao::event_loop::ControlFlow::Wait;
+        }
+    });
 }
