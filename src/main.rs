@@ -122,7 +122,7 @@ fn main() {
     });
 
     // 设置全局热键并获取事件处理器
-    let (handler_hotkeys, hotkey_receiver, hotkey_exit_tx) = set_hotkeys(&path_infos,&settings);
+    let (handler_hotkeys,  hotkey_exit_tx) = set_hotkeys(&path_infos,&settings);
     // 使用 Arc<Mutex<Option<>>> 包装热键处理线程，便于安全地在多线程间共享和清理
     let handler_hotkeys: Arc<Mutex<Option<std::thread::JoinHandle<()>>>> =
         Arc::new(Mutex::new(Some(handler_hotkeys)));
@@ -132,34 +132,7 @@ fn main() {
 
     // 主事件循环
     // 处理热键事件和程序状态管理
-    let exe_path = path_infos.exe_path.clone();
-    let save_path = settings.path.clone();
-    let time_enabled = settings.time.clone();
     event_loop.run(move |_event, _, control_flow| {
-        // 检查并处理热键事件
-        while let Ok(hotkey_event) = hotkey_receiver.try_recv() {
-            match hotkey_event {
-                "sc_unchecked" => {
-                    println!("sc_un");
-                    sc_mode(&exe_path, time_enabled, &save_path)
-                } // 触发截图
-                "pin" => {
-                    println!("pin");
-                    operate_exe(&exe_path, "pin", &PathBuf::new())
-                } // 钉图功能
-                "conf" => {
-                    println!("conf");
-                    operate_exe(&path_infos.conf_path, "conf", &PathBuf::new())
-                } // 打开配置
-                "exit" => {
-                    // 退出程序
-                    *running.lock().unwrap() = false;
-                    operate_exe(&PathBuf::new(), "exit", &PathBuf::new());
-                }
-                _ => {}
-            }
-        }
-
         // 程序退出处理
         if !*running.lock().unwrap() || event_handler.is_finished() {
             // 清理热键线程

@@ -20,14 +20,9 @@ use windows_hotkeys::{
 pub fn set_hotkeys(
     paths: &PathInfos,
     settings_collected: &SettingsCollection,
-) -> (
-    JoinHandle<()>,
-    mpsc::Receiver<&'static str>,
-    mpsc::Sender<()>,
-) {
+) -> (JoinHandle<()>, mpsc::Sender<()>) {
     let settings_collected = settings_collected.clone();
-    let (tx, rx) = mpsc::channel();
-    let (exit_tx, _exit_rx) = mpsc::channel();
+    let (exit_tx, exit_rx) = mpsc::channel();
 
     let exe_path = paths.exe_path.clone();
     let is_time = settings_collected.time.clone();
@@ -37,48 +32,50 @@ pub fn set_hotkeys(
         let key_groups = settings_collected.keys_collection;
         let mut hkm = HotkeyManager::new();
 
+        let exe_path_clone = exe_path.clone();
         // 注册截屏快捷键
-        let tx_sc = tx.clone();
         let hotkey_sc = hkm.register(key_groups[0].vkey, &key_groups[0].mod_keys, move || {
-            tx_sc.send("sc_unchecked").unwrap();
+            sc_mode(&exe_path_clone, is_time, &final_path);
         });
-        match hotkey_sc {
-            Ok(_) => sc_mode(&exe_path, is_time, &final_path),
-            Err(_) => panic!("Failed reg Hotkey sc."),
+        if hotkey_sc.is_err() {
+            panic!("Failed reg Hotkey sc.");
         };
 
         // 注册钉图快捷键
-        let tx_pin = tx.clone();
+        let exe_path_clone = exe_path.clone();
         let hotkey_pin = hkm.register(key_groups[1].vkey, &key_groups[1].mod_keys, move || {
-            tx_pin.send("pin").unwrap();
+            operate_exe(&exe_path_clone, "pin", &PathBuf::new());
         });
-        match hotkey_pin {
-            Ok(_) => operate_exe(&exe_path, "pin", &PathBuf::new()),
-            Err(_) => panic!("Failed reg Hotkey pin."),
+        if hotkey_pin.is_err() {
+            panic!("Failed reg Hotkey pin.");
         };
 
         // 注册设置快捷键
-        let tx_conf = tx.clone();
         let hotkey_conf = hkm.register(key_groups[3].vkey, &key_groups[3].mod_keys, move || {
-            tx_conf.send("conf").unwrap();
+            operate_exe(&conf_path, "conf", &PathBuf::new())
         });
         match hotkey_conf {
-            Ok(_) => operate_exe(&conf_path, "conf", &PathBuf::new()),
+            Ok(_) => (),
             Err(_) => panic!("Failed reg Hotkey conf."),
         };
 
         // 注册退出快捷键
-        let tx_exit = tx.clone();
         let hotkey_exit = hkm.register(key_groups[2].vkey, &key_groups[2].mod_keys, move || {
-            tx_exit.send("exit").unwrap();
+            std::process::exit(0)
         });
         match hotkey_exit {
-            Ok(_) => std::process::exit(0),
+            Ok(_) => (),
             Err(_) => panic!("Failed reg Hotkey exit."),
         };
+
+        // 添加消息循环
+        while exit_rx.try_recv().is_err() {
+            // 处理所有等待的消息
+            hkm.handle_hotkey();
+        }
     });
 
-    (handle, rx, exit_tx)
+    (handle, exit_tx)
 }
 
 /// 将快捷键配置字符串转换为系统可用的按键组合
