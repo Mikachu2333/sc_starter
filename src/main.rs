@@ -13,6 +13,7 @@ use crate::types::*;
 use single_instance;
 use single_instance::SingleInstance;
 use std::{os::windows::process::CommandExt, path::PathBuf};
+//use tray_icon::{menu::Menu, TrayIconBuilder};
 
 /// 随机生成的GUID，用于程序单例检测
 /// 防止程序多开造成快捷键冲突
@@ -51,14 +52,23 @@ fn main() {
     // 读取配置文件
     // 包含快捷键设置和截图保存路径
     let settings = read_config(&path_infos.conf_path);
-    for i in &settings.keys_collection {
-        println!("Groups: {}", i);
-    }
-    println!("Dir: {:?}", &settings.path);
+    print!("{}", settings);
+
+    // 创建托盘图标
+    /*
+       let tray_menu = Menu::new();
+       let tray_icon = TrayIconBuilder::new()
+           .with_menu(Box::new(tray_menu))
+           .with_tooltip("system-tray - tray icon library!")
+           .with_icon(icon)
+           .build()
+           .unwrap();
+    */
 
     // 设置系统全局快捷键
     // 包括截图、钉图、退出和重启功能
-    let _handler_hotkeys = set_hotkeys(&path_infos, settings);
+    let handler_hotkeys = set_hotkeys(&path_infos, settings);
+    handler_hotkeys.join().unwrap();
 
     // 启动文件监控
     // 防止程序运行时核心文件被删除或修改

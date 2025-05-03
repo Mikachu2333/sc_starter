@@ -1,6 +1,7 @@
 use crate::hotkeys::match_keys;
 use crate::types::{KeyStringGroups, KeyVkGroups, SettingsCollection};
 use ini::Ini;
+use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
 use windows_hotkeys::keys::{ModKey, VKey};
 
@@ -13,9 +14,9 @@ static DEFAULT_SETTING: [KeyVkGroups; 4] = [
         vkey: VKey::P,
     },
     KeyVkGroups {
-        // 钉图快捷键：Win+Alt+Ctrl+C
+        // 钉图快捷键：Win+Alt+Ctrl+T
         mod_keys: [ModKey::Win, ModKey::Alt, ModKey::Ctrl],
-        vkey: VKey::C,
+        vkey: VKey::T,
     },
     KeyVkGroups {
         // 退出程序快捷键：Win+Ctrl+Shift+Esc
@@ -28,6 +29,8 @@ static DEFAULT_SETTING: [KeyVkGroups; 4] = [
         vkey: VKey::O,
     },
 ];
+
+const TIME_BOOL: bool = false;
 
 const DEFAULT_HOTKEYS: [(&str, &str); 4] = [
     ("screen_capture", "Ctrl+Win+Alt@P"),
@@ -65,9 +68,10 @@ fn resolve_path(path: &str) -> PathBuf {
         x => {
             // 验证路径是否存在
             let temp = PathBuf::from(x);
-            if temp.exists() {
+            if temp.exists() && temp.is_dir() {
                 temp
             } else {
+                let _ = std::process::Command::new("mshta").raw_arg("\"javascript:var sh=new ActiveXObject('WScript.Shell'); sh.Popup('Dir you give is not a valid path, please check it.',3,'Warning',32);close()\"").spawn();
                 PathBuf::new()
             }
         }
@@ -89,33 +93,20 @@ fn resolve_path(path: &str) -> PathBuf {
 /// * 当配置无效时使用默认值
 pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
     // 读取INI配置文件
-    let conf = Ini::load_from_file(conf_path).unwrap();
+    let mut conf = Ini::load_from_file(conf_path).unwrap();
 
     // 获取或创建快捷键配置组
-    let hotkey_group = match conf.section(Some("hotkey".to_owned())) {
+    let hotkey_group = match conf.section(Some("hotkey")) {
         Some(x) => x.to_owned(),
         None => {
-            let mut props = ini::Properties::new();
-            for (key, value) in DEFAULT_HOTKEYS.iter() {
-                props.insert(key.to_string(), value.to_string());
+            // 创建默认快捷键配置
+            for (key, value) in DEFAULT_HOTKEYS {
+                conf.with_section(Some("hotkey")).set(key, value);
             }
-            props
+            conf.write_to_file(conf_path).unwrap();
+            conf.section(Some("hotkey")).unwrap().to_owned()
         }
     };
-
-    // 读取并处理保存路径设置
-    let unchecked_path = conf
-        .section(Some("path"))
-        .and_then(|section| section.get("dir"))
-        .map(|path| {
-            // 规范化路径字符串
-            path.replace("\\", "/")
-                .replace("//", "/")
-                .trim_matches(['\\', '/', '\n', '\r', '"', '\'', ' ', '\t'])
-                .to_string()
-        })
-        .unwrap_or("&".to_owned());
-    //println!("UncheckedPath: {}", &unchecked_path);
 
     // 将配置字符串转换为KeyStringGroups结构
     let string_groups: Vec<KeyStringGroups> = hotkey_group
@@ -139,12 +130,59 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
         }
     }
 
+    // 获取并处理路径配置
+    let path_section = conf.section(Some("path".to_owned()));
+    let unchecked_path = match path_section {
+        Some(section) => {
+            if let Some(dir) = section.get("dir") {
+                // 规范化路径字符串
+                dir.replace("\\", "/")
+                    .replace("//", "/")
+                    .trim_matches(['\\', '/', '\n', '\r', '"', '\'', ' ', '\t'])
+                    .to_string()
+            } else {
+                // 如果没有dir配置，添加默认值
+                conf.with_section(Some("path")).set("dir", "&");
+                conf.write_to_file(conf_path).unwrap();
+                "&".to_owned()
+            }
+        }
+        None => {
+            // 如果没有path段，创建并设置默认值
+            conf.with_section(Some("path")).set("dir", "&");
+            conf.write_to_file(conf_path).unwrap();
+            "&".to_owned()
+        }
+    };
+    //println!("unchecked_Path: {}", unchecked_path);
+
     // 解析保存路径
     let path_result = resolve_path(&unchecked_path);
+
+    //获取并处理以时间保存截图
+    let time_bool = match conf.section(Some("sundry")) {
+        Some(b) => match b.get("time") {
+            Some(x) => x == "1",
+            None => {
+                conf.with_section(Some("sundry")).set("time", "0");
+                conf.write_to_file(conf_path).unwrap();
+                TIME_BOOL
+            }
+        },
+        None => {
+            conf.with_section(Some("sundry")).set("time", "0");
+            conf.write_to_file(conf_path).unwrap();
+            TIME_BOOL
+        }
+    };
+
+    //处理time问题
+    let time_result = time_bool && path_result.exists();
 
     // 返回最终配置集合
     SettingsCollection {
         keys_collection: result_groups.try_into().unwrap_or(DEFAULT_SETTING.clone()),
         path: path_result,
+        time: time_result,
     }
 }

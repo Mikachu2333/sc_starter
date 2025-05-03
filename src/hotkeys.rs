@@ -17,7 +17,7 @@ use windows_hotkeys::{
 pub fn set_hotkeys(paths: &PathInfos, settings_collected: SettingsCollection) -> JoinHandle<()> {
     let exe_path = paths.exe_path.to_owned();
     let conf_path = paths.conf_path.to_owned();
-    let dir = settings_collected.path.to_path_buf();
+    let save_path = settings_collected.path.to_path_buf();
 
     thread::spawn(move || {
         let res_path = exe_path.clone();
@@ -25,55 +25,55 @@ pub fn set_hotkeys(paths: &PathInfos, settings_collected: SettingsCollection) ->
         let mut hkm = HotkeyManager::new();
 
         // 注册截屏快捷键
-        // 触发时执行operate_exe函数，参数mode=0表示截屏操作
-        let hotkey_1 = hkm.register(key_groups[0].vkey, &key_groups[0].mod_keys, move || {
-            operate_exe(&exe_path, 0, &dir.to_path_buf());
+        // 触发时执行operate_exe函数
+        let hotkey_sc = hkm.register(key_groups[0].vkey, &key_groups[0].mod_keys, move || {
+            if settings_collected.time {
+                operate_exe(&res_path, "sct", &save_path);
+            } else {
+                operate_exe(&res_path, "sc", &save_path);
+            }
         });
-        match hotkey_1 {
+        match hotkey_sc {
             Ok(_) => (),
             Err(_) => {
-                operate_exe(&conf_path, 3, &PathBuf::new());
-                panic!("Failed reg Hotkey 1.")
+                panic!("Failed reg Hotkey for sc.")
             }
         };
 
         // 注册钉图快捷键
         // 触发时执行operate_exe函数，参数mode=1表示钉图操作
-        let hotkey_2 = hkm.register(key_groups[1].vkey, &key_groups[1].mod_keys, move || {
-            operate_exe(&res_path, 1, &PathBuf::new());
+        let res_path = exe_path.clone();
+        let hotkey_pin = hkm.register(key_groups[1].vkey, &key_groups[1].mod_keys, move || {
+            operate_exe(&res_path, "pin", &PathBuf::new());
         });
-        match hotkey_2 {
+        match hotkey_pin {
             Ok(_) => (),
             Err(_) => {
-                operate_exe(&conf_path, 3, &PathBuf::new());
                 panic!("Failed reg Hotkey 2.")
+            }
+        }
+
+        // 注册设置快捷键
+        // 触发时执行operate_exe函数，参数
+        let hotkey_conf = hkm.register(key_groups[3].vkey, &key_groups[3].mod_keys, move || {
+            operate_exe(&conf_path, "conf", &PathBuf::new());
+        });
+        match hotkey_conf {
+            Ok(_) => (),
+            Err(_) => {
+                panic!("Failed reg Hotkey conf.")
             }
         }
 
         // 注册退出快捷键
         // 触发时执行operate_exe函数，参数mode=2表示退出操作
-        let hotkey_3 = hkm.register(key_groups[2].vkey, &key_groups[2].mod_keys, move || {
-            operate_exe(std::path::Path::new(""), 2, &PathBuf::new());
+        let hotkey_exit = hkm.register(key_groups[2].vkey, &key_groups[2].mod_keys, move || {
+            operate_exe(std::path::Path::new(""), "exit", &PathBuf::new());
         });
-        match hotkey_3 {
+        match hotkey_exit {
             Ok(_) => (),
             Err(_) => {
-                operate_exe(&conf_path, 3, &PathBuf::new());
                 panic!("Failed reg Hotkey 3.")
-            }
-        }
-
-        // 注册重启快捷键
-        // 触发时执行operate_exe函数，参数mode=3表示重启操作
-        let conf_path_clone = conf_path.clone();
-        let hotkey_4 = hkm.register(key_groups[3].vkey, &key_groups[3].mod_keys, move || {
-            operate_exe(&conf_path, 3, &PathBuf::new());
-        });
-        match hotkey_4 {
-            Ok(_) => (),
-            Err(_) => {
-                operate_exe(&conf_path_clone, 3, &PathBuf::new());
-                panic!("Failed reg Hotkey 4.")
             }
         }
 

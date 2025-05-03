@@ -11,49 +11,70 @@ A starter for ScreenCapture
 ```ini
 encoding=utf-8
 
-; 设置文件使用说明：
+; 设置文件使用说明 / Configuration File Instructions:
 ;
 ; ①设置内容不区分大小写，但必须按照指定格式书写，不可更改设置的格式，否则将无法设置成功
+; ①Settings are case-insensitive but must follow the specified format. Do not change the format or settings will fail.
 ;    ⚠️设置完请保存并关闭文件，然后再次打开程序⚠️
+;    ⚠️Please save and close the file after configuration, then restart the program⚠️
 ;
 ; ②如相关配置未成功应用，将使用默认配置（例如快捷键与已有的冲突，将使用默认快捷键）
+; ②If any configuration fails to apply, default settings will be used (e.g., if hotkeys conflict with existing ones)
 
 
 [hotkey]
-; 快捷键格式如下：
+; 快捷键格式如下 / Hotkey format:
 ; 「控制键1」+「控制键2」+「……」@「实际键」
+; [Modifier1]+[Modifier2]+[...]@[Key]
+;
 ; 【⚠️注意】：为了避免您设定的快捷键与当前系统中其他软件使用的快捷键冲突，请至少选定两个「控制键」，且尽量不要使用「Ctrl」+「Shift」=「X」样式的快捷键（因其过于常见）。
-;
-; 可用的控制键列表如下（大小写均可）：
-; WIN / WINDOWS / SUPER （Win键等同类型控制键）
-; CTRL / CONTROL （Ctrl键）
-; ALT （Alt键）
-; SHIFT （Shift键）
-;
-; 可用的实际键列表如下（尽量精确大小写）：
-; A -> Z （字母键，不区分大小写）
-; 0 -> 9 （数字键，非小键盘）
-; VK_TAB （Tab键）
-; VK_ESCAPE （Esc键）
-; VK_INSERT （Insert键）
-; VK_NUMPAD0 -> VK_NUMPAD9 （小键盘数字键）
-; VK_F1 -> VK_F24 （Fn键系列）
+; [⚠️Note]: To avoid conflicts with other software, please use at least two modifier keys and avoid common combinations like "Ctrl+Shift+X".
 
-; 控制截屏
+; 可用的控制键列表如下/ Available modifier keys
+; WIN / WINDOWS / SUPER （Win键等同类型控制键 / Windows key）
+; CTRL / CONTROL （Ctrl键 / Control key）
+; ALT （Alt键 / Alt key）
+; SHIFT （Shift键 / Shift key）
+
+; 可用的实际键列表如下/ Available keys
+; A -> Z （字母键，不区分大小写 / Letter keys, case-insensitive）
+; 0 -> 9 （数字键，非小键盘 / Number keys, not numpad）
+; VK_TAB （Tab键 / Tab key）
+; VK_ESCAPE （Esc键 / Escape key）
+; VK_INSERT （Insert键 / Insert key）
+; VK_NUMPAD0 -> VK_NUMPAD9 （小键盘数字键 / Numpad number keys）
+; VK_F1 -> VK_F24 （Fn键系列 / Function keys）
+
+
+; 控制截屏 / Screen capture
 screen_capture = Ctrl+Win+Alt@P
-; 将剪贴板中的图像钉到屏幕
+; 将剪贴板中的图像钉到屏幕 / Pin clipboard image to screen
 pin_to_screen = Ctrl+Win+Alt@T
-; 退出软件
+; 退出软件 / Exit application
 exit = Win+Ctrl+Shift@VK_ESCAPE
-; 打开配置文件
+; 打开配置文件 / Open configuration file
 open_conf = Ctrl+Win+Alt@O
 
 
 [path]
 ; 设置图片的自动保存位置，可选以下几种：
-; &         -> 截图时手动选定（默认）
-; @         -> 桌面
-; *         -> 图片文件夹
+; Configure automatic save location for images, options:
+; &         -> 截图时手动选定（默认）/ Manual selection when capturing (default)
+; @         -> 桌面 / Desktop
+; *         -> 图片文件夹 / Pictures folder
 ; D:/test   -> 其他指定文件夹（支持目录中含有中文及空格，路径必须存在）
+;              Other specified folder (supports Chinese and spaces in path, must exist)
+; ⚠️警告/Warning⚠️
+; 路径必须使用斜杠『/』或双反斜杠『\\』
+; Path must use slashes "/" or double backslashes "\\"
 dir = &
+
+
+[sundry]
+; 设置是否以当前系统时间保存截屏文件
+; Configure whether to save screenshots with current system time
+; 本设置启用时，必须在上面的dir项中指定一个保存位置，否则本设置失效
+; When enabled, must specify a save location in [path-dir] above, otherwise this setting is ineffective
+; 0代表关闭，1代表开启 / 0=disabled, 1=enabled
+time = 0
 ```

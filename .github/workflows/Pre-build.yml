@@ -1,0 +1,44 @@
+name: Rust
+
+on:
+  push:
+    branches: ["main"]
+    paths-ignore:
+      - ".github/**"
+      - ".gitignore"
+      - "*.md"
+      - "**.txt"
+      - "LICENSE"
+  pull_request:
+    branches: ["main"]
+    paths-ignore:
+      - ".github/**"
+      - ".gitignore"
+      - "**/*.md"
+      - "README.md"
+      - "LICENSE"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: rust-toolchain-reborn
+        uses: crusty-pie/toolchain@v1.0.8
+        with:
+          toolchain: stable
+          targets: x86_64-pc-windows-msvc
+          default: true
+          override: true
+
+      - name: Build
+        run: cargo build -r --target=x86_64-pc-windows-msvc
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: Preview
+          path: ./target/x86_64-pc-windows-msvc/release/SC_Starter.exe
