@@ -1,3 +1,10 @@
+//! 快捷键管理模块
+//! 
+//! 本模块负责：
+//! - 注册全局快捷键
+//! - 处理快捷键事件
+//! - 管理快捷键线程
+
 use crate::file_ops::operate_exe;
 use crate::types::{KeyStringGroups, KeyVkGroups, PathInfos, SettingsCollection};
 use std::thread;
@@ -8,12 +15,19 @@ use windows_hotkeys::{
     HotkeyManagerImpl,
 };
 
-/// 根据配置文件设置快捷键
-/// ### Arguments
-/// * `paths` - 包含程序路径信息的结构体
-/// * `settings_collected` - 包含设置信息的结构体
-/// ### Returns
-/// * `JoinHandle<()>` - 线程句柄
+/// 根据配置设置全局快捷键
+/// 
+/// ### 参数
+/// - `paths`: 包含程序路径信息的结构体
+/// - `settings_collected`: 包含快捷键设置的结构体
+/// 
+/// ### 返回值
+/// - `JoinHandle<()>`: 快捷键监听线程的句柄
+/// 
+/// ### 功能
+/// - 注册四组全局快捷键
+/// - 设置对应的处理函数
+/// - 启动事件循环
 pub fn set_hotkeys(paths: &PathInfos, settings_collected: SettingsCollection) -> JoinHandle<()> {
     let exe_path = paths.exe_path.to_owned();
     let conf_path = paths.conf_path.to_owned();
@@ -82,11 +96,15 @@ pub fn set_hotkeys(paths: &PathInfos, settings_collected: SettingsCollection) ->
     })
 }
 
-/// 将字符串形式的按键转换为系统快捷键值
-/// ### Arguments
-/// * `groups` - 包含字符串形式按键的结构体
-/// ### Returns
-/// * `(bool, KeyVkGroups)` - (转换是否成功的状态, 转换后的快捷键组合)
+/// 将快捷键配置字符串转换为系统可用的按键组合
+/// 
+/// ### 参数
+/// - `groups`: 包含按键字符串的结构体
+/// 
+/// ### 返回值
+/// - `(bool, KeyVkGroups)`: 转换状态和结果
+/// - 第一个值表示转换是否成功
+/// - 第二个值为转换后的按键组合
 pub fn match_keys(groups: &KeyStringGroups) -> (bool, KeyVkGroups) {
     let group1 = &groups.mod_keys;
     let group2 = groups.vkey.as_ref();

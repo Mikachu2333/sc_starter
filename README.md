@@ -2,79 +2,60 @@
 
 A starter for ScreenCapture
 
-## 本软件是[ScreenCapture](https://github.com/xland/ScreenCapture)的启动器，自带原程序并自动注册快捷键，无显示界面，仅凭借快捷键进行操控
+## 功能说明 / Features
 
-## 使用方法：见下方配置文件
+本软件是 [ScreenCapture](https://github.com/xland/ScreenCapture) 的启动器，提供以下功能：
 
-如需自定义快捷键请先使用 `Ctrl+Win+Alt=O` 打开配置文件，更改并保存后使用 `Win+Ctrl+Shift=VK_ESCAPE` 退出软件，再次打开软件即可使用自定义配置。
+- 内置截图程序，无需额外安装
+- 自动注册全局快捷键
+- 支持自定义保存路径
+- 支持以时间戳命名
+- 文件防删除保护
+- 无界面设计，纯快捷键操作
 
-```ini
-encoding=utf-8
+## 使用方法 / Usage
 
-; 设置文件使用说明 / Configuration File Instructions:
-;
-; ①设置内容不区分大小写，但必须按照指定格式书写，不可更改设置的格式，否则将无法设置成功
-; ①Settings are case-insensitive but must follow the specified format. Do not change the format or settings will fail.
-;    ⚠️设置完请保存并关闭文件，然后再次打开程序⚠️
-;    ⚠️Please save and close the file after configuration, then restart the program⚠️
-;
-; ②如相关配置未成功应用，将使用默认配置（例如快捷键与已有的冲突，将使用默认快捷键）
-; ②If any configuration fails to apply, default settings will be used (e.g., if hotkeys conflict with existing ones)
+1. 默认快捷键 / Default Hotkeys:
+   - `Ctrl+Win+Alt+P`: 截屏 / Screen capture
+   - `Ctrl+Win+Alt+T`: 钉图 / Pin image
+   - `Win+Ctrl+Shift+Esc`: 退出 / Exit
+   - `Ctrl+Win+Alt+O`: 打开配置 / Open settings
 
+2. 自定义设置 / Custom Settings:
+   - 使用 `Ctrl+Win+Alt+O` 打开配置文件
+   - 修改后保存并关闭文件
+   - 使用 `Win+Ctrl+Shift+Esc` 退出程序
+   - 重新启动程序应用新配置
 
-[hotkey]
-; 快捷键格式如下 / Hotkey format:
-; 「控制键1」+「控制键2」+「……」@「实际键」
-; [Modifier1]+[Modifier2]+[...]@[Key]
-;
-; 【⚠️注意】：为了避免您设定的快捷键与当前系统中其他软件使用的快捷键冲突，请至少选定两个「控制键」，且尽量不要使用「Ctrl」+「Shift」=「X」样式的快捷键（因其过于常见）。
-; [⚠️Note]: To avoid conflicts with other software, please use at least two modifier keys and avoid common combinations like "Ctrl+Shift+X".
+## 配置说明 / Configuration
 
-; 可用的控制键列表如下/ Available modifier keys
-; WIN / WINDOWS / SUPER （Win键等同类型控制键 / Windows key）
-; CTRL / CONTROL （Ctrl键 / Control key）
-; ALT （Alt键 / Alt key）
-; SHIFT （Shift键 / Shift key）
+配置文件包含三个部分：
 
-; 可用的实际键列表如下/ Available keys
-; A -> Z （字母键，不区分大小写 / Letter keys, case-insensitive）
-; 0 -> 9 （数字键，非小键盘 / Number keys, not numpad）
-; VK_TAB （Tab键 / Tab key）
-; VK_ESCAPE （Esc键 / Escape key）
-; VK_INSERT （Insert键 / Insert key）
-; VK_NUMPAD0 -> VK_NUMPAD9 （小键盘数字键 / Numpad number keys）
-; VK_F1 -> VK_F24 （Fn键系列 / Function keys）
+### [hotkey] 快捷键设置 / Hotkey Settings
 
+- 格式：`控制键1+控制键2+...@实际键`
+- 示例：`Ctrl+Win+Alt@P`
+- 至少需要两个控制键
+- 支持的控制键：Win/Ctrl/Alt/Shift
+- 支持的实际键：字母A-Z、数字0-9、功能键F1-F24等
 
-; 控制截屏 / Screen capture
-screen_capture = Ctrl+Win+Alt@P
-; 将剪贴板中的图像钉到屏幕 / Pin clipboard image to screen
-pin_to_screen = Ctrl+Win+Alt@T
-; 退出软件 / Exit application
-exit = Win+Ctrl+Shift@VK_ESCAPE
-; 打开配置文件 / Open configuration file
-open_conf = Ctrl+Win+Alt@O
+### [path] 保存路径设置 / Save Path Settings
 
+- `&`: 每次手动选择位置（默认）
+- `@`: 保存到桌面
+- `*`: 保存到图片文件夹
+- 自定义路径：如 `D:/Screenshots`
+- 路径分隔符**必须使用** `/` 或 `\\`
 
-[path]
-; 设置图片的自动保存位置，可选以下几种：
-; Configure automatic save location for images, options:
-; &         -> 截图时手动选定（默认）/ Manual selection when capturing (default)
-; @         -> 桌面 / Desktop
-; *         -> 图片文件夹 / Pictures folder
-; D:/test   -> 其他指定文件夹（支持目录中含有中文及空格，路径必须存在）
-;              Other specified folder (supports Chinese and spaces in path, must exist)
-; ⚠️警告/Warning⚠️
-; 路径必须使用斜杠『/』或双反斜杠『\\』
-; Path must use slashes "/" or double backslashes "\\"
-dir = &
+### [sundry] 其他设置 / Other Settings
 
+- `time`: 是否使用时间戳命名（0=否，1=是）
+- 启用时间戳命名时必须指定保存路径
 
-[sundry]
-; 设置是否以当前系统时间保存截屏文件
-; Configure whether to save screenshots with current system time
-; 本设置启用时，必须在上面的dir项中指定一个保存位置，否则本设置失效
-; When enabled, must specify a save location in [path-dir] above, otherwise this setting is ineffective
-; 0代表关闭，1代表开启 / 0=disabled, 1=enabled
-time = 0
-```
+## 注意事项 / Notes
+
+1. 程序会自动以单例模式运行，防止多开
+2. 配置文件自动保存在 AppData/Local/SC_Starter 目录
+3. 程序会自动监控核心文件，防止被误删除
+4. 所有快捷键不区分大小写
+5. 修改配置后必须重启程序才能生效

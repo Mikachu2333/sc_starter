@@ -1,3 +1,11 @@
+//! 配置管理模块
+//! 
+//! 本模块负责：
+//! - 读取和解析配置文件
+//! - 维护默认配置
+//! - 验证配置有效性
+//! - 转换配置格式
+
 use crate::hotkeys::match_keys;
 use crate::types::{KeyStringGroups, KeyVkGroups, SettingsCollection};
 use ini::Ini;
@@ -5,8 +13,14 @@ use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
 use windows_hotkeys::keys::{ModKey, VKey};
 
-/// 默认快捷键设置
+/// 默认快捷键组合
 /// 当配置文件不存在或配置无效时使用
+/// 
+/// 包含四组快捷键：
+/// 1. 截屏：Win+Alt+Ctrl+P
+/// 2. 钉图：Win+Alt+Ctrl+T
+/// 3. 退出：Win+Ctrl+Shift+Esc
+/// 4. 设置：Win+Alt+Ctrl+O
 static DEFAULT_SETTING: [KeyVkGroups; 4] = [
     KeyVkGroups {
         // 截屏快捷键：Win+Alt+Ctrl+P
@@ -40,18 +54,21 @@ const DEFAULT_HOTKEYS: [(&str, &str); 4] = [
 ];
 
 /// 解析路径字符串为PathBuf
-///
-/// ### 参数
-/// * `path` - 待解析的路径字符串
-///
-/// ### 返回值
-/// * 解析后的路径
-///
+/// 
 /// ### 特殊路径符号
-/// * "&" - 返回空路径
-/// * "@" - 返回桌面路径
-/// * "*" - 返回图片文件夹路径
-/// * 其他 - 直接转换为PathBuf
+/// - `&`: 返回空路径（手动选择）
+/// - `@`: 返回桌面路径
+/// - `*`: 返回图片文件夹路径
+/// 
+/// ### 参数
+/// - `path`: 待解析的路径字符串
+/// 
+/// ### 返回值
+/// - `PathBuf`: 解析后的路径
+/// 
+/// ### 说明
+/// - 自定义路径必须存在且为目录
+/// - 路径分隔符统一转换为系统标准格式
 fn resolve_path(path: &str) -> PathBuf {
     match path {
         "&" => PathBuf::new(),

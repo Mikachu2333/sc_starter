@@ -1,3 +1,10 @@
+//! 文件操作模块
+//! 
+//! 本模块负责：
+//! - 检查和保护核心文件
+//! - 处理文件操作请求
+//! - 执行外部程序
+
 use crate::types::{FileExist, PathInfos};
 use rust_embed::*;
 use std::sync::{
@@ -16,15 +23,17 @@ use std::{
 const RES_SIZE: u64 = 8612352;
 
 /// 检查所需文件是否存在及其状态
-///
+/// 
 /// ### 参数
-/// * `infos` - 包含程序所需的所有路径信息
-///
+/// - `infos`: 包含程序所需的所有路径信息
+/// 
 /// ### 返回值
-/// 返回一个 `FileExist` 结构体，包含:
-/// * `exe_exist` - exe文件是否存在
-/// * `exe_latest` - exe文件是否为最新版本
-/// * `conf_exist` - 配置文件是否存在
+/// - `FileExist`: 包含文件状态的结构体
+/// 
+/// ### 说明
+/// - 检查exe文件是否存在
+/// - 检查exe文件是否为最新版本
+/// - 检查配置文件是否存在
 pub fn check_res_exist(infos: &PathInfos) -> FileExist {
     let mut files_exist = FileExist {
         exe_exist: false,
@@ -93,21 +102,19 @@ pub fn unzip_res(paths: &PathInfos, exists: &FileExist) {
 }
 
 /// 程序操作控制函数
-///
+/// 
 /// ### 参数
-/// * `path` - 要操作的程序路径
-/// * `mode` - 操作模式:
-///     - sc: 运行截屏
-///     - sct: 截屏并保存为时间
-///     - pin: 钉图
-///     - exit: 退出程序
-///     - conf: 打开设置文件
-///     - restart: 3秒后提示重启
-/// * `dir` - 指定的工作目录路径
-///
-/// ### Panics
-/// * 当 `mode` 参数不在有效范围内时会 panic
-/// * 当路径无效或程序无法启动时会显示错误提示
+/// - `path`: 要操作的程序路径
+/// - `mode`: 操作模式
+/// - `save_path`: 指定的保存路径
+/// 
+/// ### 操作模式
+/// - `sc`: 普通截屏
+/// - `sct`: 带时间戳的截屏
+/// - `pin`: 钉图功能
+/// - `exit`: 退出程序
+/// - `conf`: 打开配置
+/// - `restart`: 程序重启
 pub fn operate_exe(path: &Path, mode: &str, save_path: &PathBuf) {
     match mode {
         "sc" => {
@@ -159,15 +166,15 @@ pub fn operate_exe(path: &Path, mode: &str, save_path: &PathBuf) {
     }
 }
 
-/// 防止程序文件被删除的监控函数
-///
+/// 监控并保护核心文件
+/// 
 /// ### 参数
-/// * `paths` - 包含需要监控的文件路径
-///
+/// - `paths`: 包含所有需要保护的文件路径
+/// 
 /// ### 功能
-/// * 每5秒检查一次文件是否存在
-/// * 如果文件被删除，显示错误信息并终止程序
-
+/// - 持续监控核心文件状态
+/// - 文件丢失时自动恢复
+/// - 恢复失败时提示用户
 pub fn avoid_exe_del(paths: &PathInfos) {
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
