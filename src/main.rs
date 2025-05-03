@@ -63,6 +63,16 @@ fn main() {
     let settings = read_config(&path_infos.conf_path);
     print!("{}", &settings);
 
+    let temp = binding
+        .config_dir()
+        .join("Microsoft\\Windows\\Start Menu\\Programs\\Startup");
+    let self_path = {
+        let str_path = std::env::args().collect::<Vec<String>>();
+        println!("{}", str_path[0]);
+        PathBuf::from(str_path.first().unwrap())
+    };
+    set_startup(settings.auto_start, &temp, &self_path);
+
     // 创建托盘图标管理器
     let tray_manager = TrayManager::new();
 

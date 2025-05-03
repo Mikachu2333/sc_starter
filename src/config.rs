@@ -45,6 +45,7 @@ static DEFAULT_SETTING: [KeyVkGroups; 4] = [
 ];
 
 const TIME_BOOL: bool = false;
+const AUTOSTART_BOOL: bool = false;
 
 const DEFAULT_HOTKEYS: [(&str, &str); 4] = [
     ("screen_capture", "Ctrl+Win+Alt@P"),
@@ -176,6 +177,23 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
     // 解析保存路径
     let path_result = resolve_path(&unchecked_path);
 
+    //获取并处理自启
+    let startup_bool = match conf.section(Some("sundry")) {
+        Some(b) => match b.get("startup") {
+            Some(x) => x == "1",
+            None => {
+                conf.with_section(Some("sundry")).set("startup", "0");
+                conf.write_to_file(conf_path).unwrap();
+                AUTOSTART_BOOL
+            }
+        },
+        None => {
+            conf.with_section(Some("sundry")).set("startup", "0");
+            conf.write_to_file(conf_path).unwrap();
+            AUTOSTART_BOOL
+        }
+    };
+
     //获取并处理以时间保存截图
     let time_bool = match conf.section(Some("sundry")) {
         Some(b) => match b.get("time") {
@@ -201,5 +219,39 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
         keys_collection: result_groups.try_into().unwrap_or(DEFAULT_SETTING.clone()),
         path: path_result,
         time: time_result,
+        auto_start: startup_bool,
+    }
+}
+
+/// 设置或更新启动时运行的快捷方式
+///
+/// 此函数旨在根据给定的参数在指定的启动目录中创建或删除程序的快捷方式
+/// 它首先尝试删除任何现有的快捷方式，然后根据`renew`参数决定是否创建新的快捷方式
+///
+/// 参数:
+/// - `renew`: 一个布尔值，指示是否创建新的快捷方式
+/// - `startup_dir`: 一个引用，指向包含启动快捷方式的目录的PathBuf对象
+/// - `self_path`: 一个引用，指向当前可执行文件路径的PathBuf对象
+pub fn set_startup(renew: bool, startup_dir: &PathBuf, self_path: &PathBuf) {
+    // 生成快捷方式的名称，基于当前可执行文件的主名称
+    let lnk_name = format!("{}.lnk", self_path.file_stem().unwrap().to_str().unwrap());
+    // 构建启动目录中快捷方式的完整路径
+    let startup_path = startup_dir.join(lnk_name);
+    // 打印快捷方式的路径，以便调试或日志记录
+    println!("{}", startup_path.display());
+
+    // 如果快捷方式已经存在，则尝试删除它
+    if startup_path.exists() {
+        std::fs::remove_file(&startup_path).expect("Failed to remove old shortcut.");
+        println!("Lnk Removed.");
+    }
+
+    // 如果`renew`参数为真，则尝试创建新的快捷方式
+    if renew {
+        mslnk::ShellLink::new(self_path)
+            .unwrap()
+            .create_lnk(startup_path)
+            .unwrap();
+        println!("Lnk Created Successfully.");
     }
 }
