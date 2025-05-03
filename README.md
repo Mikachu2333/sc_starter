@@ -11,7 +11,8 @@ A starter for ScreenCapture
 - 支持自定义保存路径
 - 支持以时间戳命名
 - 文件防删除保护
-- 无界面设计，纯快捷键操作
+- 托盘左键单击截图，右键退出
+- 自启动设置
 
 ## 使用方法 / Usage
 
@@ -59,3 +60,77 @@ A starter for ScreenCapture
 3. 程序会自动监控核心文件，防止被误删除
 4. 所有快捷键不区分大小写
 5. 修改配置后必须重启程序才能生效
+
+## 附，完整设置文件
+
+```ini
+encoding=utf-8
+
+; 设置文件使用说明 / Configuration File Instructions:
+;
+; ①程序启动时会自动处理配置文件
+; ①The program will automatically process the configuration file when starting
+;   - 如果文件不存在，会创建默认配置
+;   - If the file does not exist, default settings will be created
+;   - 如果某项配置缺失，会自动补充默认值
+;   - If any setting is missing, default values will be added
+;
+; ②配置更改后需要重启程序才能生效
+; ②Program restart is required after configuration changes
+;   - 使用快捷键 Win+Ctrl+Shift+Esc 退出程序
+;   - Use Win+Ctrl+Shift+Esc to exit the program
+;   - 重新启动程序加载新配置
+;   - Restart the program to load new settings
+
+[hotkey]
+; 快捷键配置说明 / Hotkey Configuration:
+; 1. 格式：控制键+控制键+...@实际键
+; 1. Format: Modifier+Modifier+...@Key
+; 2. 至少需要两个控制键，避免冲突
+; 2. At least two modifiers required to avoid conflicts
+; 3. 支持的控制键 / Supported modifiers:
+;    - WIN/WINDOWS/SUPER
+;    - CTRL/CONTROL
+;    - ALT
+;    - SHIFT
+; 4. 支持的实际键 / Supported keys:
+;    - A-Z：字母键 / Letters
+;    - 0-9：数字键 / Numbers
+;    - VK_系列：特殊键 / Special keys
+
+; 控制截屏 / Screen capture
+screen_capture = Ctrl+Win+Alt@P
+; 将剪贴板中的图像钉到屏幕 / Pin clipboard image to screen
+pin_to_screen = Ctrl+Win+Alt@T
+; 退出软件 / Exit application
+exit = Win+Ctrl+Shift@VK_ESCAPE
+; 打开配置文件 / Open configuration file
+open_conf = Ctrl+Win+Alt@O
+
+
+[path]
+; 设置图片的自动保存位置，可选以下几种：
+; Configure automatic save location for images, options:
+; &         -> 截图时手动选定（默认）/ Manual selection when capturing (default)
+; @         -> 桌面 / Desktop
+; *         -> 图片文件夹 / Pictures folder
+; D:/test   -> 其他指定文件夹（支持目录中含有中文及空格，路径必须存在）
+;              Other specified folder (supports Chinese and spaces in path, must exist)
+; ⚠️警告/Warning⚠️
+; 路径必须使用斜杠『/』或双反斜杠『\\』
+; Path must use slashes "/" or double backslashes "\\"
+dir = &
+
+
+[sundry]
+; 设置是否以当前系统时间保存截屏文件
+; Configure whether to save screenshots with current system time
+; 本设置启用时，必须在上面的dir项中指定一个保存位置，否则本设置失效
+; When enabled, must specify a save location in [path-dir] above, otherwise this setting is ineffective
+; 0代表关闭，1代表开启 / 0=disabled, 1=enabled
+time = 0
+; 设置是否开机自启
+; Configure whether to start automatically at boot
+; 0代表关闭，1代表开启 / 0=disabled, 1=enabled
+startup = 0
+```
