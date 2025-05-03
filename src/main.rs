@@ -3,21 +3,22 @@
 mod config;
 mod file_ops;
 mod hotkeys;
+//mod tray;
 mod types;
 
 use crate::config::*;
 use crate::file_ops::*;
 use crate::hotkeys::*;
+//use crate::tray::*;
 use crate::types::*;
 
 use single_instance;
 use single_instance::SingleInstance;
 use std::{os::windows::process::CommandExt, path::PathBuf};
-//use tray_icon::{menu::Menu, TrayIconBuilder};
 
 /// 随机生成的GUID，用于程序单例检测
 /// 防止程序多开造成快捷键冲突
-const PROCESS_ID: &str = "2E94A7BAE3864EEBA3FCC7AB758C2112";
+const PROCESS_ID: &str = "C950E2CF78E7358DC0B2A754D49D298E";
 
 fn main() {
     // 使用 CreateMuteA 确保程序单例运行
@@ -54,23 +55,25 @@ fn main() {
     let settings = read_config(&path_infos.conf_path);
     print!("{}", settings);
 
-    // 创建托盘图标
     /*
-       let tray_menu = Menu::new();
-       let tray_icon = TrayIconBuilder::new()
-           .with_menu(Box::new(tray_menu))
-           .with_tooltip("system-tray - tray icon library!")
-           .with_icon(icon)
-           .build()
-           .unwrap();
-    */
+    // 创建并运行托盘图标
+    let tray_manager = TrayManager::new(
+        path_infos.exe_path.clone(),
+        settings.path.clone(),
+        settings.time,
+    );
+    let tray_handler = tray_manager.run();
+     */
 
     // 设置系统全局快捷键
-    // 包括截图、钉图、退出和重启功能
     let handler_hotkeys = set_hotkeys(&path_infos, settings);
+
+    // 等待热键线程结束
     handler_hotkeys.join().unwrap();
 
+    // 等待托盘线程结束
+    //tray_handler.join().unwrap();
+
     // 启动文件监控
-    // 防止程序运行时核心文件被删除或修改
     avoid_exe_del(&path_infos);
 }

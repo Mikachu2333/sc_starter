@@ -19,8 +19,8 @@ use std::{
     process::Command,
 };
 
-// ScreenCapture.exe v2.2.12 的文件大小
-const RES_SIZE: u64 = 8612352;
+// ScreenCapture.exe v2.2.13 的文件大小
+const RES_SIZE: u64 = 8613888;
 
 /// 检查所需文件是否存在及其状态
 /// 
