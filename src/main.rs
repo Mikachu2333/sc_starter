@@ -29,10 +29,10 @@ use tray_icon::TrayIconEvent;
 const PROCESS_ID: &str = "C950E2CF78E7358DC0B2A754D49D298E";
 
 fn main() {
-    // 使用 CreateMuteA 确保程序单例运行
+    // 使用系统互斥锁确保程序单例运行，防止多个实例造成快捷键冲突
     let instance = Box::new(SingleInstance::new(PROCESS_ID).unwrap());
     if !instance.is_single() {
-        // 如果检测到程序已运行，弹出提示框并退出
+        // 检测到已有实例在运行时，显示提示并退出
         let _ = std::process::Command::new("mshta")
             .raw_arg("\"javascript:var sh=new ActiveXObject('WScript.Shell'); sh.Popup('Avoid Multiple.',0,'Error',16);close()\"").spawn();
         panic!("Multiple!")
@@ -70,33 +70,35 @@ fn main() {
         settings.time.clone(),
     );
 
-    // 获取事件接收器
+    // 获取托盘图标事件接收器
     let event_receiver = tray_manager.run();
 
-    // 创建共享状态
-    let running = Arc::new(Mutex::new(true));
+    // 创建事件循环和状态管理
+    let event_loop = EventLoop::new();
+    let running = Arc::new(Mutex::new(true)); // 程序运行状态标志
     let running_clone = running.clone();
 
-    // 创建事件循环
-    let event_loop = EventLoop::new();
-
     // 托盘事件处理线程
+    // 处理用户与托盘图标的交互，如点击和双击事件
     let exe_path = path_infos.exe_path.clone();
     let save_path = settings.path.clone();
     let time_enabled = settings.time;
 
     let event_handler = std::thread::spawn(move || {
         while let Ok(event) = event_receiver.recv() {
+            // 检查程序是否应该退出
             if !*running_clone.lock().unwrap() {
                 break;
             }
 
             match event {
+                // 左键双击：触发截图
                 TrayIconEvent::DoubleClick { button, .. } => {
                     if button == MouseButton::Left {
                         sc_mode(&exe_path, time_enabled, &save_path);
                     }
                 }
+                // 单击事件处理
                 TrayIconEvent::Click {
                     button,
                     button_state,
@@ -104,11 +106,12 @@ fn main() {
                 } => {
                     if button_state == MouseButtonState::Down {
                         if button == MouseButton::Right {
-                            // 退出程序
+                            // 右键单击：退出程序
                             *running_clone.lock().unwrap() = false;
                             operate_exe(&PathBuf::new(), "exit", &PathBuf::new());
                             break;
                         } else {
+                            // 左键单击：触发截图
                             sc_mode(&exe_path, time_enabled, &save_path);
                         }
                     }
@@ -118,25 +121,38 @@ fn main() {
         }
     });
 
-    // 设置系统全局快捷键
-    let (handler_hotkeys, hotkey_receiver) = set_hotkeys(&settings);
-    let handler_hotkeys = Arc::new(Mutex::new(Some(handler_hotkeys))); // 包装为 Arc + Mutex + Option
+    // 设置全局热键并获取事件处理器
+    let (handler_hotkeys, hotkey_receiver, hotkey_exit_tx) = set_hotkeys(&path_infos,&settings);
+    // 使用 Arc<Mutex<Option<>>> 包装热键处理线程，便于安全地在多线程间共享和清理
+    let handler_hotkeys: Arc<Mutex<Option<std::thread::JoinHandle<()>>>> =
+        Arc::new(Mutex::new(Some(handler_hotkeys)));
 
-    // 启动文件监控
+    // 启动文件监控，防止核心文件被删除
     avoid_exe_del(&path_infos);
 
-    // 运行事件循环
+    // 主事件循环
+    // 处理热键事件和程序状态管理
     let exe_path = path_infos.exe_path.clone();
     let save_path = settings.path.clone();
     let time_enabled = settings.time.clone();
     event_loop.run(move |_event, _, control_flow| {
-        // 检查热键事件
-        if let Ok(hotkey_event) = hotkey_receiver.try_recv() {
+        // 检查并处理热键事件
+        while let Ok(hotkey_event) = hotkey_receiver.try_recv() {
             match hotkey_event {
-                "sc_unchecked" => sc_mode(&exe_path, time_enabled, &save_path),
-                "pin" => operate_exe(&exe_path, "pin", &PathBuf::new()),
-                "conf" => operate_exe(&path_infos.conf_path, "conf", &PathBuf::new()),
+                "sc_unchecked" => {
+                    println!("sc_un");
+                    sc_mode(&exe_path, time_enabled, &save_path)
+                } // 触发截图
+                "pin" => {
+                    println!("pin");
+                    operate_exe(&exe_path, "pin", &PathBuf::new())
+                } // 钉图功能
+                "conf" => {
+                    println!("conf");
+                    operate_exe(&path_infos.conf_path, "conf", &PathBuf::new())
+                } // 打开配置
                 "exit" => {
+                    // 退出程序
                     *running.lock().unwrap() = false;
                     operate_exe(&PathBuf::new(), "exit", &PathBuf::new());
                 }
@@ -144,16 +160,22 @@ fn main() {
             }
         }
 
+        // 程序退出处理
         if !*running.lock().unwrap() || event_handler.is_finished() {
-            // 取出 handler_hotkeys 并 join
+            // 清理热键线程
             if let Some(handle) = Arc::clone(&handler_hotkeys).lock().unwrap().take() {
+                hotkey_exit_tx.send(()).ok(); // 发送退出信号
                 if let Ok(_) = handle.join() {
                     println!("Hotkey handler thread terminated.");
                 }
             }
-            // 确保所有资源都被清理
-            *control_flow = tao::event_loop::ControlFlow::Exit;
+
+            // 清理托盘图标
+            let _ = &tray_manager; // 触发 Drop trait 实现
+
+            *control_flow = tao::event_loop::ControlFlow::Exit; // 退出事件循环
         } else {
+            // 继续等待事件
             *control_flow = tao::event_loop::ControlFlow::Wait;
         }
     });

@@ -37,8 +37,10 @@ impl TrayManager {
         TrayIconEvent::receiver().to_owned()
     }
 }
+
 impl Drop for TrayManager {
     fn drop(&mut self) {
+        // 确保托盘图标被正确移除
         self.tray_icon.set_visible(false).ok();
     }
 }

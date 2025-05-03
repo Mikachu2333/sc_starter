@@ -6,7 +6,7 @@
 //! - 管理快捷键线程
 
 use crate::file_ops::operate_exe;
-use crate::types::{KeyStringGroups, KeyVkGroups, SettingsCollection};
+use crate::types::*;
 use std::sync::mpsc;
 use std::thread;
 use std::{path::PathBuf, thread::JoinHandle};
@@ -18,13 +18,21 @@ use windows_hotkeys::{
 
 /// 设置全局快捷键并返回事件发送器
 pub fn set_hotkeys(
+    paths: &PathInfos,
     settings_collected: &SettingsCollection,
-) -> (JoinHandle<()>, mpsc::Receiver<&'static str>) {
-    let settings_collected = settings_collected.clone().to_owned();
-
-    // 创建channel用于发送热键事件
+) -> (
+    JoinHandle<()>,
+    mpsc::Receiver<&'static str>,
+    mpsc::Sender<()>,
+) {
+    let settings_collected = settings_collected.clone();
     let (tx, rx) = mpsc::channel();
+    let (exit_tx, _exit_rx) = mpsc::channel();
 
+    let exe_path = paths.exe_path.clone();
+    let is_time = settings_collected.time.clone();
+    let final_path = settings_collected.path.clone();
+    let conf_path = paths.conf_path.clone();
     let handle = thread::spawn(move || {
         let key_groups = settings_collected.keys_collection;
         let mut hkm = HotkeyManager::new();
@@ -35,8 +43,8 @@ pub fn set_hotkeys(
             tx_sc.send("sc_unchecked").unwrap();
         });
         match hotkey_sc {
-            Ok(_) => (),
-            Err(_) => panic!("Failed reg Hotkey for sc."),
+            Ok(_) => sc_mode(&exe_path, is_time, &final_path),
+            Err(_) => panic!("Failed reg Hotkey sc."),
         };
 
         // 注册钉图快捷键
@@ -45,8 +53,8 @@ pub fn set_hotkeys(
             tx_pin.send("pin").unwrap();
         });
         match hotkey_pin {
-            Ok(_) => (),
-            Err(_) => panic!("Failed reg Hotkey 2."),
+            Ok(_) => operate_exe(&exe_path, "pin", &PathBuf::new()),
+            Err(_) => panic!("Failed reg Hotkey pin."),
         };
 
         // 注册设置快捷键
@@ -55,7 +63,7 @@ pub fn set_hotkeys(
             tx_conf.send("conf").unwrap();
         });
         match hotkey_conf {
-            Ok(_) => (),
+            Ok(_) => operate_exe(&conf_path, "conf", &PathBuf::new()),
             Err(_) => panic!("Failed reg Hotkey conf."),
         };
 
@@ -65,15 +73,12 @@ pub fn set_hotkeys(
             tx_exit.send("exit").unwrap();
         });
         match hotkey_exit {
-            Ok(_) => (),
-            Err(_) => panic!("Failed reg Hotkey 3."),
+            Ok(_) => std::process::exit(0),
+            Err(_) => panic!("Failed reg Hotkey exit."),
         };
-
-        // 启动事件循环
-        hkm.event_loop();
     });
 
-    (handle, rx)
+    (handle, rx, exit_tx)
 }
 
 /// 将快捷键配置字符串转换为系统可用的按键组合
