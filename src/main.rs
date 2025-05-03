@@ -122,7 +122,7 @@ fn main() {
     });
 
     // 设置全局热键并获取事件处理器
-    let (handler_hotkeys,  hotkey_exit_tx) = set_hotkeys(&path_infos,&settings);
+    let (handler_hotkeys, hotkey_exit_tx) = set_hotkeys(&path_infos, &settings);
     // 使用 Arc<Mutex<Option<>>> 包装热键处理线程，便于安全地在多线程间共享和清理
     let handler_hotkeys: Arc<Mutex<Option<std::thread::JoinHandle<()>>>> =
         Arc::new(Mutex::new(Some(handler_hotkeys)));
