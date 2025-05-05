@@ -237,8 +237,7 @@ pub fn set_startup(renew: bool, startup_dir: &PathBuf, self_path: &PathBuf) {
     let lnk_name = format!("{}.lnk", self_path.file_stem().unwrap().to_str().unwrap());
     // 构建启动目录中快捷方式的完整路径
     let startup_path = startup_dir.join(lnk_name);
-    // 打印快捷方式的路径，以便调试或日志记录
-    println!("{}", startup_path.display());
+    //println!("{}", startup_path.display());
 
     // 如果快捷方式已经存在，则尝试删除它
     if startup_path.exists() {
