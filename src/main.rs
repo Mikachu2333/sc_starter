@@ -26,7 +26,7 @@ use tray_icon::TrayIconEvent;
 
 /// 随机生成的GUID，用于程序单例检测
 /// 防止程序多开造成快捷键冲突
-const PROCESS_ID: &str = "C950E2CF78E7358DC0B2A754D49D298E";
+const PROCESS_ID: &str = "78D83F24ADEC8FAF2E4CC1795F166CE4";
 
 fn main() {
     // 使用系统互斥锁确保程序单例运行，防止多个实例造成快捷键冲突
