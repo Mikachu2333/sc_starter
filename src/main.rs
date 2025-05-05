@@ -68,7 +68,7 @@ fn main() {
         .join("Microsoft\\Windows\\Start Menu\\Programs\\Startup");
     let self_path = {
         let str_path = std::env::args().collect::<Vec<String>>();
-        println!("{}", str_path[0]);
+        //println!("{}", str_path[0]);
         PathBuf::from(str_path.first().unwrap())
     };
     set_startup(settings.auto_start, &temp, &self_path);
