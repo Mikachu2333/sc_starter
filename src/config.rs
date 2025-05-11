@@ -229,7 +229,6 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
     let path_result = get_path_from_config(&config);
     let (time_bool, startup_bool) = get_sundry_settings(&config);
     let gui_config = get_gui_config(&config);
-    dbg!(gui_config.clone());
 
     // 返回最终配置集合
     SettingsCollection {

@@ -35,11 +35,7 @@ const RES_SIZE: u64 = 7589888;
 /// - 检查exe文件是否为最新版本
 /// - 检查配置文件是否存在
 pub fn check_res_exist(infos: &PathInfos) -> FileExist {
-    let mut files_exist = FileExist {
-        exe_exist: false,
-        exe_latest: false,
-        conf_exist: false,
-    };
+    let mut files_exist = FileExist::default();
 
     if !infos.dir_path.exists() {
         match fs::create_dir_all(&infos.dir_path) {

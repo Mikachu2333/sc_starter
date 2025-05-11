@@ -12,6 +12,15 @@ pub struct FileExist {
     /// 配置文件是否存在
     pub conf_exist: bool,
 }
+impl Default for FileExist {
+    fn default() -> Self {
+        FileExist {
+            exe_exist: false,
+            exe_latest: false,
+            conf_exist: false,
+        }
+    }
+}
 
 /// 设置集合结构体
 /// 存储程序的所有配置信息
