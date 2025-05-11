@@ -36,14 +36,15 @@ impl std::fmt::Display for SettingsCollection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "\n----------\nHotkeys Settings:\n  Screenshot:\t{}\n  Pin Image:\t{}\n  Exit:\t\t{}\n  Config:\t{}\n\nSave Path:\t\t{:?}\nTime-based Saving:\t{}\nAuto Startup:\t\t{}\n----------\n\n",
+            "\n----------\nHotkeys Settings:\n  Screenshot:\t{}\n  Pin Image:\t{}\n  Exit:\t\t{}\n  Config:\t{}\n\nSave Path:\t\t{:?}\nTime-based Saving:\t{}\nAuto Startup:\t\t{}\nGUI:\t\t\t{}\n----------\n\n",
             self.keys_collection[0],
             self.keys_collection[1],
             self.keys_collection[2],
             self.keys_collection[3],
             self.path,
             self.time,
-            self.auto_start
+            self.auto_start,
+            self.gui_conf
         )
     }
 }

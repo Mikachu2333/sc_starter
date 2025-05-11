@@ -134,6 +134,7 @@ pub fn match_keys(groups: &KeyStringGroups) -> (bool, KeyVkGroups) {
 /// * `is_time` - 一个布尔值，用于决定是否添加时间参数到文件名
 /// * `final_path` - 一个指向最终路径的引用，用于指定命令执行后的结果路径
 pub fn sc_mode(exe_path: &PathBuf, is_time: bool, final_path: &PathBuf, gui: &String) {
+    println!("{}",&gui);
     if is_time {
         operate_exe(&exe_path, "sct", &final_path, &gui.clone());
     } else {
