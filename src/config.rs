@@ -53,6 +53,8 @@ const DEFAULT_HOTKEYS: [(&str, &str); 4] = [
     ("exit", "Win+Ctrl+Shift@VK_ESCAPE"),
     ("open_conf", "Ctrl+Win+Alt@O"),
 ];
+const DEFAULT_GUI: &str =
+    "rect,ellipse,arrow,number,line,text,mosaic,eraser,|,undo,redo,|,pin,clipboard,save,close";
 
 /// 解析路径字符串为PathBuf
 ///
@@ -214,12 +216,32 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
     //处理time问题
     let time_result = time_bool && path_result.exists();
 
+    //处理gui显示
+    let gui_config = match conf.section(Some("sundry")) {
+        Some(b) => match b.get("gui_config") {
+            Some(x) => x.to_string(),
+            None => {
+                conf.with_section(Some("sundry"))
+                    .set("gui_config", DEFAULT_GUI);
+                conf.write_to_file(conf_path).unwrap();
+                DEFAULT_GUI.to_string()
+            }
+        },
+        None => {
+            conf.with_section(Some("sundry"))
+                .set("gui_config", DEFAULT_GUI);
+            conf.write_to_file(conf_path).unwrap();
+            DEFAULT_GUI.to_string()
+        }
+    };
+
     // 返回最终配置集合
     SettingsCollection {
         keys_collection: result_groups.try_into().unwrap_or(DEFAULT_SETTING.clone()),
         path: path_result,
         time: time_result,
         auto_start: startup_bool,
+        gui_conf: format!("--tool:\"{}\"", gui_config),
     }
 }
 

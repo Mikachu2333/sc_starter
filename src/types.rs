@@ -27,7 +27,10 @@ pub struct SettingsCollection {
     pub path: PathBuf,
     /// 是否以截图时间保存图片
     pub time: bool,
+    /// 是否自动启动程序
     pub auto_start: bool,
+    /// 是否更改显示效果
+    pub gui_conf: String
 }
 impl std::fmt::Display for SettingsCollection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

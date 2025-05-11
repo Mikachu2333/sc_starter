@@ -1,6 +1,6 @@
 [package]
 name = "SC_Starter"
-version = "2.0.19"
+version = "2.0.20"
 edition = "2021"
 
 [profile.release]
@@ -11,7 +11,7 @@ panic = "abort"
 
 [dependencies]
 directories = "6.0.0"
-rust-embed = { version = "8.7.0", features = ["compression"] }
+rust-embed = { version = "8.7.1", features = ["compression"] }
 single-instance = "0.3.3"
 windows-hotkeys = "0.2.1"
 rust-ini = "0.21.1"

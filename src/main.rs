@@ -89,6 +89,7 @@ fn main() {
     let exe_path = path_infos.exe_path.clone();
     let save_path = settings.path.clone();
     let time_enabled = settings.time;
+    let gui = settings.gui_conf.clone();
 
     let event_handler = std::thread::spawn(move || {
         while let Ok(event) = event_receiver.recv() {
@@ -101,7 +102,7 @@ fn main() {
                 // 左键双击：触发截图
                 TrayIconEvent::DoubleClick { button, .. } => {
                     if button == MouseButton::Left {
-                        sc_mode(&exe_path, time_enabled, &save_path);
+                        sc_mode(&exe_path, time_enabled, &save_path, &gui);
                     }
                 }
                 // 单击事件处理
@@ -114,11 +115,11 @@ fn main() {
                         if button == MouseButton::Right {
                             // 右键单击：退出程序
                             *running_clone.lock().unwrap() = false;
-                            operate_exe(&PathBuf::new(), "exit", &PathBuf::new());
+                            operate_exe(&PathBuf::new(), "exit", &PathBuf::new(), &String::new());
                             break;
                         } else {
                             // 左键单击：触发截图
-                            sc_mode(&exe_path, time_enabled, &save_path);
+                            sc_mode(&exe_path, time_enabled, &save_path, &gui);
                         }
                     }
                 }

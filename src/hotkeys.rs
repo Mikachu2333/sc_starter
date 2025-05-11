@@ -28,14 +28,16 @@ pub fn set_hotkeys(
     let is_time = settings_collected.time.clone();
     let final_path = settings_collected.path.clone();
     let conf_path = paths.conf_path.clone();
+    let gui = settings_collected.gui_conf.clone();
     let handle = thread::spawn(move || {
         let key_groups = settings_collected.keys_collection;
         let mut hkm = HotkeyManager::new();
 
         let exe_path_clone = exe_path.clone();
+        let gui_clone = gui.clone();
         // 注册截屏快捷键
         let hotkey_sc = hkm.register(key_groups[0].vkey, &key_groups[0].mod_keys, move || {
-            sc_mode(&exe_path_clone, is_time, &final_path);
+            sc_mode(&exe_path_clone, is_time, &final_path, &gui_clone);
         });
         if hotkey_sc.is_err() {
             panic!("Failed reg Hotkey sc.");
@@ -43,8 +45,9 @@ pub fn set_hotkeys(
 
         // 注册钉图快捷键
         let exe_path_clone = exe_path.clone();
+        let gui_clone = gui.clone();
         let hotkey_pin = hkm.register(key_groups[1].vkey, &key_groups[1].mod_keys, move || {
-            operate_exe(&exe_path_clone, "pin", &PathBuf::new());
+            operate_exe(&exe_path_clone, "pin", &PathBuf::new(), &gui_clone);
         });
         if hotkey_pin.is_err() {
             panic!("Failed reg Hotkey pin.");
@@ -52,7 +55,7 @@ pub fn set_hotkeys(
 
         // 注册设置快捷键
         let hotkey_conf = hkm.register(key_groups[3].vkey, &key_groups[3].mod_keys, move || {
-            operate_exe(&conf_path, "conf", &PathBuf::new())
+            operate_exe(&conf_path, "conf", &PathBuf::new(), &String::new())
         });
         match hotkey_conf {
             Ok(_) => (),
@@ -130,10 +133,10 @@ pub fn match_keys(groups: &KeyStringGroups) -> (bool, KeyVkGroups) {
 /// * `exe_path` - 一个指向可执行文件路径的引用，用于指定需要操作的程序
 /// * `is_time` - 一个布尔值，用于决定是否添加时间参数到文件名
 /// * `final_path` - 一个指向最终路径的引用，用于指定命令执行后的结果路径
-pub fn sc_mode(exe_path: &PathBuf, is_time: bool, final_path: &PathBuf) {
+pub fn sc_mode(exe_path: &PathBuf, is_time: bool, final_path: &PathBuf, gui: &String) {
     if is_time {
-        operate_exe(&exe_path, "sct", &final_path);
+        operate_exe(&exe_path, "sct", &final_path, &gui.clone());
     } else {
-        operate_exe(&exe_path, "sc", &final_path);
+        operate_exe(&exe_path, "sc", &final_path, &gui.clone());
     }
 }

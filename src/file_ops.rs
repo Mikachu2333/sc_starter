@@ -19,8 +19,8 @@ use std::{
     process::Command,
 };
 
-// ScreenCapture.exe v2.2.19 的文件大小
-const RES_SIZE: u64 = 7586816;
+// ScreenCapture.exe v2.2.20 的文件大小
+const RES_SIZE: u64 = 7589888;
 
 /// 检查所需文件是否存在及其状态
 ///
@@ -94,8 +94,8 @@ pub fn unzip_res(paths: &PathInfos, exists: &FileExist) {
         let _ = fs::write(&paths.conf_path, config_res.data.as_ref())
             .expect("Error write config file.");
         println!("Release config file.");
-        operate_exe(&paths.conf_path, "conf", &PathBuf::new());
-        operate_exe(Path::new(""), "restart", &PathBuf::new());
+        operate_exe(&paths.conf_path, "conf", &PathBuf::new(), &String::new());
+        operate_exe(Path::new(""), "restart", &PathBuf::new(), &String::new());
     } else {
         println!("No need to release.");
     }
@@ -113,15 +113,16 @@ pub fn unzip_res(paths: &PathInfos, exists: &FileExist) {
 /// - `sct`: 带时间戳的截屏
 /// - `pin`: 钉图功能
 /// - `exit`: 退出程序
-/// - `conf`: 打开配置
+/// - `conf`: 打开配置s
 /// - `restart`: 程序重启
-pub fn operate_exe(path: &Path, mode: &str, save_path: &PathBuf) {
+pub fn operate_exe(path: &Path, mode: &str, save_path: &PathBuf, gui: &String) {
     match mode {
         "sc" => {
             if save_path != &PathBuf::new() {
                 //println!("{}", temp);
                 let _ = Command::new(path)
                     .raw_arg(format!("--dir:\"{}\"", save_path.to_str().unwrap()))
+                    .raw_arg(gui)
                     .spawn();
             } else {
                 let _ = Command::new(path).spawn();
