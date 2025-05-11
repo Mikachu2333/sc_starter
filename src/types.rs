@@ -44,7 +44,7 @@ impl std::fmt::Display for SettingsCollection {
             self.path,
             self.time,
             self.auto_start,
-            self.gui_conf
+            self.gui_conf.split('"').collect::<Vec<&str>>().get(1).unwrap_or(&"")
         )
     }
 }

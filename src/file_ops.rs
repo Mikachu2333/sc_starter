@@ -121,8 +121,8 @@ pub fn operate_exe(path: &Path, mode: &str, save_path: &PathBuf, gui: &String) {
             if save_path != &PathBuf::new() {
                 //println!("{}", temp);
                 let _ = Command::new(path)
-                    .raw_arg(format!("--dir:\"{}\"", save_path.to_str().unwrap()))
-                    .raw_arg(gui)
+                    .arg(format!("--dir:\"{}\"", save_path.to_str().unwrap()))
+                    .arg(gui)
                     .spawn();
             } else {
                 let _ = Command::new(path).spawn();
@@ -130,18 +130,18 @@ pub fn operate_exe(path: &Path, mode: &str, save_path: &PathBuf, gui: &String) {
         }
         "sct" => {
             let temp = format!(
-                "--path:\"{}\"",
+                r#"--path:"{}""#,
                 save_path
                     .join(get_current_time())
                     .to_str()
                     .unwrap()
-                    .replace("\\", "\\\\")
+                    .replace("\\", "/")
             );
-            println!("{}", temp);
-            let _ = Command::new(path).raw_arg(temp).spawn();
+            println!("{}", &temp);
+            let _ = Command::new(path).arg(&gui).arg(&temp).spawn();
         }
         "pin" => {
-            let _ = Command::new(path).raw_arg("--pin:clipboard").spawn();
+            let _ = Command::new(path).arg("--pin:clipboard").spawn();
         }
         "exit" => {
             println!("Preparing to exit...");

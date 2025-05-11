@@ -1,6 +1,3 @@
-# 编码设置
-encoding = "utf-8"
-
 # 设置文件使用说明 / Configuration File Instructions:
 #
 # ①程序启动时会自动处理配置文件
