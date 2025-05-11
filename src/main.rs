@@ -49,7 +49,7 @@ fn main() {
     let path_infos = PathInfos {
         dir_path: dir_path.clone(),
         exe_path: dir_path.join("ScreenCapture.exe"),
-        conf_path: dir_path.join("config.ini"),
+        conf_path: dir_path.join("config.toml"),
     };
     println!("{}", &path_infos);
 

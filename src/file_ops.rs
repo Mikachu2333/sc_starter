@@ -7,16 +7,16 @@
 
 use crate::types::{FileExist, PathInfos};
 use rust_embed::*;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    mpsc, Arc,
-};
-use std::thread;
 use std::{
     fs,
     os::windows::{fs::MetadataExt, process::CommandExt},
     path::{Path, PathBuf},
     process::Command,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Arc,
+    },
+    thread,
 };
 
 // ScreenCapture.exe v2.2.20 的文件大小
@@ -80,8 +80,8 @@ struct Asset;
 /// * 如果exe不存在或不是最新版本，释放exe文件
 /// * 如果配置文件不存在，释放配置文件并执行初始化操作
 pub fn unzip_res(paths: &PathInfos, exists: &FileExist) {
-    let screen_capture_res =
-        Asset::get("ScreenCapture.exe").expect("Error read embedded EXE res file.");
+    let screen_capture_res = Asset::get(paths.exe_path.file_name().unwrap().to_str().unwrap())
+        .expect("Error read embedded EXE res file.");
     let config_res = Asset::get(paths.conf_path.file_name().unwrap().to_str().unwrap())
         .expect("Error read embedded Config res file.");
 

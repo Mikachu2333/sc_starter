@@ -30,7 +30,7 @@ pub struct SettingsCollection {
     /// 是否自动启动程序
     pub auto_start: bool,
     /// 是否更改显示效果
-    pub gui_conf: String
+    pub gui_conf: String,
 }
 impl std::fmt::Display for SettingsCollection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -86,6 +86,8 @@ pub struct KeyStringGroups {
 /// 用于实际注册系统热键
 #[derive(Clone, Debug)]
 pub struct KeyVkGroups {
+    /// 快捷键的标识名称
+    pub name: &'static str,
     /// 修饰键数组，固定3个
     pub mod_keys: [ModKey; 3],
     /// 主键的VK码
