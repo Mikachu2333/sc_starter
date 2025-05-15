@@ -145,8 +145,10 @@ pub fn operate_exe(path: &Path, mode: &str, gui: &String) {
         parm => {
             if parm.contains('*') {
                 let temp = parm.split('*').map(String::from);
+                println!("temp: {:?}", temp.clone().collect::<Vec<String>>());
                 let _ = Command::new(path).args(temp).arg(&gui).spawn();
             } else {
+                println!("parm: {:?}", parm);
                 let _ = Command::new(path).arg(&gui).spawn();
             }
         }
