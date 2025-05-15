@@ -14,11 +14,12 @@ use windows_hotkeys::keys::{ModKey, VKey};
 /// 默认快捷键组合
 /// 当配置文件不存在或配置无效时使用
 ///
-/// 包含四组快捷键：
+/// 包含五组快捷键：
 /// 1. 截屏：Win+Alt+Ctrl+P
-/// 2. 钉图：Win+Alt+Ctrl+T
-/// 3. 退出：Win+Ctrl+Shift+Esc
-/// 4. 设置：Win+Alt+Ctrl+O
+/// 2. 截长屏：Win+Alt+Ctrl+L
+/// 3. 钉图：Win+Alt+Ctrl+T
+/// 4. 退出：Win+Ctrl+Shift+Esc
+/// 5. 设置：Win+Alt+Ctrl+O
 
 const AUTOSTART_BOOL: bool = false;
 
@@ -166,7 +167,7 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
             eprintln!("Hotkey section missing in config file");
             // 返回默认配置，但保留其他可能有效的设置
             let path = get_path_from_config(&config);
-            let  startup_bool = get_sundry_settings(&config);
+            let startup_bool = get_sundry_settings(&config);
             let gui_config = get_gui_config(&config);
 
             return SettingsCollection {
@@ -219,7 +220,7 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
 
     // 获取路径和其他设置
     let path_result = get_path_from_config(&config);
-    let  startup_bool = get_sundry_settings(&config);
+    let startup_bool = get_sundry_settings(&config);
     let gui_config = get_gui_config(&config);
     println!("{}", &gui_config);
 
@@ -268,7 +269,7 @@ fn get_sundry_settings(config: &Value) -> bool {
         .and_then(|v| v.as_bool())
         .unwrap_or(AUTOSTART_BOOL);
 
-     startup_bool
+    startup_bool
 }
 
 // 获取GUI配置

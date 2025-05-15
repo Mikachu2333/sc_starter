@@ -29,7 +29,7 @@ pub struct SettingsCollection {
     /// 热键配置数组
     /// 1. 截屏(screen_capture)
     /// 2. 截长屏(screen_capture_long)
-    /// 3. Pin(pin_to_screen)
+    /// 3. 钉图(pin_to_screen)
     /// 4. 退出(exit)
     /// 5. 设置(open_conf)
     pub keys_collection: KeyVkGroups,
@@ -37,7 +37,7 @@ pub struct SettingsCollection {
     pub path: PathBuf,
     /// 是否自动启动程序
     pub auto_start: bool,
-    /// 是否更改显示效果
+    /// GUI配置参数
     pub gui_conf: String,
 }
 impl std::fmt::Display for SettingsCollection {

@@ -119,7 +119,7 @@ fn main() {
                             break;
                         } else {
                             // 左键单击：触发截图
-                            operate_exe(&exe_path, &parms_get( &save_path), &gui);
+                            operate_exe(&exe_path, &parms_get(&save_path), &gui);
                         }
                     }
                 }

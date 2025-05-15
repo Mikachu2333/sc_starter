@@ -38,11 +38,7 @@ pub fn set_hotkeys(
             key_groups.get("screen_capture").unwrap().vkey,
             &key_groups.get("screen_capture").unwrap().mod_keys,
             move || {
-                operate_exe(
-                    &exe_path_clone,
-                    &parms_get( &final_path_clone),
-                    &gui_clone,
-                );
+                operate_exe(&exe_path_clone, &parms_get(&final_path_clone), &gui_clone);
             },
         );
         if hotkey_sc.is_err() {
@@ -60,7 +56,7 @@ pub fn set_hotkeys(
             move || {
                 operate_exe(
                     &exe_path_clone,
-                    &("--cap:long*".to_string() + &parms_get( &final_path_clone)),
+                    &("--cap:long*".to_string() + &parms_get(&final_path_clone)),
                     &gui_clone,
                 );
             },
@@ -116,7 +112,16 @@ pub fn set_hotkeys(
     (handle, exit_tx)
 }
 
-pub fn parms_get( save_path: &PathBuf) -> String {
+/// 生成保存路径参数
+///
+/// ### 参数
+/// - `save_path`: 用户配置的保存路径
+///
+/// ### 返回值
+/// - `String`: 格式化后的命令行参数字符串
+///   - 如果路径为空，返回空字符串，表示使用默认路径
+///   - 否则返回格式化的 --path:"路径" 参数
+pub fn parms_get(save_path: &PathBuf) -> String {
     let mut parm: Vec<String> = Vec::new();
     if save_path != &PathBuf::new() {
         parm.push(format!(
