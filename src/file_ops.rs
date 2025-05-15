@@ -10,7 +10,7 @@ use rust_embed::*;
 use std::{
     fs,
     os::windows::{fs::MetadataExt, process::CommandExt},
-    path::{Path, PathBuf},
+    path::Path,
     process::Command,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -19,7 +19,7 @@ use std::{
     thread,
 };
 
-// ScreenCapture.exe v2.2.20 的文件大小
+// ScreenCapture.exe v2.2.21 的文件大小
 const RES_SIZE: u64 = 7589888;
 
 /// 检查所需文件是否存在及其状态
@@ -90,8 +90,8 @@ pub fn unzip_res(paths: &PathInfos, exists: &FileExist) {
         let _ = fs::write(&paths.conf_path, config_res.data.as_ref())
             .expect("Error write config file.");
         println!("Release config file.");
-        operate_exe(&paths.conf_path, "conf", &PathBuf::new(), &String::new());
-        operate_exe(Path::new(""), "restart", &PathBuf::new(), &String::new());
+        operate_exe(&paths.conf_path, "conf", &String::new());
+        operate_exe(Path::new(""), "restart", &String::new());
     } else {
         println!("No need to release.");
     }
@@ -111,31 +111,8 @@ pub fn unzip_res(paths: &PathInfos, exists: &FileExist) {
 /// - `exit`: 退出程序
 /// - `conf`: 打开配置s
 /// - `restart`: 程序重启
-pub fn operate_exe(path: &Path, mode: &str, save_path: &PathBuf, gui: &String) {
+pub fn operate_exe(path: &Path, mode: &str, gui: &String) {
     match mode {
-        "sc" => {
-            if save_path != &PathBuf::new() {
-                //println!("{}", temp);
-                let _ = Command::new(path)
-                    .arg(format!("--dir:\"{}\"", save_path.to_str().unwrap()))
-                    .arg(gui)
-                    .spawn();
-            } else {
-                let _ = Command::new(path).spawn();
-            }
-        }
-        "sct" => {
-            let temp = format!(
-                r#"--path:"{}""#,
-                save_path
-                    .join(get_current_time())
-                    .to_str()
-                    .unwrap()
-                    .replace("\\", "/")
-            );
-            println!("{}", &temp);
-            let _ = Command::new(path).arg(&gui).arg(&temp).spawn();
-        }
         "pin" => {
             let _ = Command::new(path).arg("--pin:clipboard").spawn();
         }
@@ -165,7 +142,14 @@ pub fn operate_exe(path: &Path, mode: &str, save_path: &PathBuf, gui: &String) {
             .raw_arg("\"javascript:var sh=new ActiveXObject('WScript.Shell'); sh.Popup('Please restart the program to apply your custom settings.',3,'Info',64);close()\"").spawn();
             std::process::exit(0);
         }
-        _ => panic!("Error arg!"),
+        parm => {
+            if parm.contains('*') {
+                let temp = parm.split('*').map(String::from);
+                let _ = Command::new(path).args(temp).arg(&gui).spawn();
+            } else {
+                let _ = Command::new(path).arg(&gui).spawn();
+            }
+        }
     }
 }
 
@@ -234,10 +218,4 @@ pub fn avoid_exe_del(paths: &PathInfos) -> Arc<AtomicBool> {
     });
 
     r2
-}
-
-fn get_current_time() -> String {
-    let now = std::time::SystemTime::now();
-    let datetime = chrono::DateTime::<chrono::Local>::from(now);
-    format!("{}.png", datetime.format("%Y-%m-%d@%H-%M-%S"))
 }

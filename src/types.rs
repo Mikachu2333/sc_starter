@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 use windows_hotkeys::keys::{ModKey, VKey};
 
 /// 文件存在状态结构体
@@ -26,16 +26,15 @@ impl Default for FileExist {
 /// 存储程序的所有配置信息
 #[derive(Clone, Debug)]
 pub struct SettingsCollection {
-    /// 热键配置数组，固定4组
-    /// 1. 截屏
-    /// 2. Pin
-    /// 3. 退出
-    /// 4. 设置
-    pub keys_collection: [KeyVkGroups; 4],
+    /// 热键配置数组
+    /// 1. 截屏(screen_capture)
+    /// 2. 截长屏(screen_capture_long)
+    /// 3. Pin(pin_to_screen)
+    /// 4. 退出(exit)
+    /// 5. 设置(open_conf)
+    pub keys_collection: KeyVkGroups,
     /// 截图保存路径
     pub path: PathBuf,
-    /// 是否以截图时间保存图片
-    pub time: bool,
     /// 是否自动启动程序
     pub auto_start: bool,
     /// 是否更改显示效果
@@ -43,15 +42,22 @@ pub struct SettingsCollection {
 }
 impl std::fmt::Display for SettingsCollection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let get_key_str = |key: &str| -> String {
+            self.keys_collection
+                .get(key)
+                .map(|v| v.to_string().replace("\"", ""))
+                .unwrap()
+        };
+
         write!(
             f,
-            "\n----------\nHotkeys Settings:\n  Screenshot:\t{}\n  Pin Image:\t{}\n  Exit:\t\t{}\n  Config:\t{}\n\nSave Path:\t\t{:?}\nTime-based Saving:\t{}\nAuto Startup:\t\t{}\nGUI:\t\t\t{}\n----------\n\n",
-            self.keys_collection[0],
-            self.keys_collection[1],
-            self.keys_collection[2],
-            self.keys_collection[3],
+            "\n----------\nHotkeys Settings:\n  Screenshot:\t\t{}\n  Long Screenshot:\t{}\n  Pin Image:\t\t{}\n  Exit:\t\t\t{}\n  Config:\t\t{}\n\nSave Path:\t\t{:?}\nAuto Startup:\t\t{}\nGUI:\t\t\t{}\n----------\n\n",
+            get_key_str("screen_capture"),
+            get_key_str("screen_capture_long"),
+            get_key_str("pin_to_screen"),
+            get_key_str("exit"),
+            get_key_str("open_conf"),
             self.path,
-            self.time,
             self.auto_start,
             self.gui_conf.split('"').collect::<Vec<&str>>().get(1).unwrap_or(&"")
         )
@@ -91,19 +97,66 @@ pub struct KeyStringGroups {
     pub vkey: String,
 }
 
-/// Windows API格式的按键组合结构体
-/// 用于实际注册系统热键
+/// 单个热键组合的值部分
 #[derive(Clone, Debug)]
-pub struct KeyVkGroups {
-    /// 快捷键的标识名称
-    pub name: &'static str,
-    /// 修饰键数组，固定3个
-    pub mod_keys: [ModKey; 3],
-    /// 主键的VK码
+pub struct HotkeyValue {
+    /// 修饰键
+    pub mod_keys: Vec<ModKey>,
+    /// 主键
     pub vkey: VKey,
 }
-impl std::fmt::Display for KeyVkGroups {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "mod keys: {:?}  vkey: {}", self.mod_keys, self.vkey)
+impl HotkeyValue {
+    pub fn to_string(&self) -> String {
+        let mods_str: Vec<String> = self
+            .mod_keys
+            .iter()
+            .map(|m| format!("{:?}", m.to_string()))
+            .collect();
+
+        format!("{}@{:?}", mods_str.join("+"), self.vkey.to_string())
     }
+}
+
+/// Windows API格式的按键组合映射
+/// 用于实际注册系统热键
+/// /// 为KeyVkGroups类型添加方法的trait
+pub type KeyVkGroups = HashMap<&'static str, HotkeyValue>;
+
+/// 将快捷键配置字符串转换为系统可用的按键组合
+///
+/// ### 参数
+/// - `groups`: 包含按键字符串的结构体
+///
+/// ### 返回值
+/// - `(bool, KeyVkGroups)`: 转换状态和结果
+/// - 第一个值表示转换是否成功
+/// - 第二个值为转换后的按键组合
+pub fn match_keys(groups: &KeyStringGroups) -> (bool, Vec<ModKey>, VKey) {
+    let group1 = &groups.mod_keys;
+    let group2 = groups.vkey.as_ref();
+    let mut results_mod: Vec<ModKey> = Vec::new();
+    let mut status = true;
+
+    // 转换修饰键(如Ctrl, Alt, Shift等)
+    for i in group1 {
+        let tmp = match ModKey::from_keyname(i) {
+            Ok(mod_key) => mod_key,
+            Err(_) => {
+                status = false;
+                ModKey::NoRepeat
+            }
+        };
+        results_mod.push(tmp);
+    }
+
+    // 转换主键值
+    let result_vk = match VKey::from_keyname(group2) {
+        Ok(vk_key) => vk_key,
+        Err(_) => {
+            status = false;
+            VKey::OemClear
+        }
+    };
+
+    (status, results_mod, result_vk)
 }

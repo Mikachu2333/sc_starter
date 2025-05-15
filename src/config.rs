@@ -6,9 +6,8 @@
 //! - 验证配置有效性
 //! - 转换配置格式
 
-use crate::hotkeys::match_keys;
-use crate::types::{KeyStringGroups, KeyVkGroups, SettingsCollection};
-use std::{fs, os::windows::process::CommandExt, path::PathBuf};
+use crate::types::*;
+use std::{collections::HashMap, fs, os::windows::process::CommandExt, path::PathBuf};
 use toml::Value;
 use windows_hotkeys::keys::{ModKey, VKey};
 
@@ -20,57 +19,11 @@ use windows_hotkeys::keys::{ModKey, VKey};
 /// 2. 钉图：Win+Alt+Ctrl+T
 /// 3. 退出：Win+Ctrl+Shift+Esc
 /// 4. 设置：Win+Alt+Ctrl+O
-static DEFAULT_SETTING: [KeyVkGroups; 4] = [
-    KeyVkGroups {
-        // 截屏快捷键：Win+Alt+Ctrl+P
-        name: "screen_capture",
-        mod_keys: [ModKey::Win, ModKey::Alt, ModKey::Ctrl],
-        vkey: VKey::P,
-    },
-    KeyVkGroups {
-        // 钉图快捷键：Win+Alt+Ctrl+T
-        name: "pin_to_screen",
-        mod_keys: [ModKey::Win, ModKey::Alt, ModKey::Ctrl],
-        vkey: VKey::T,
-    },
-    KeyVkGroups {
-        // 退出程序快捷键：Win+Ctrl+Shift+Esc
-        name: "exit",
-        mod_keys: [ModKey::Win, ModKey::Ctrl, ModKey::Shift],
-        vkey: VKey::Escape,
-    },
-    KeyVkGroups {
-        // 打开设置快捷键：Win+Alt+Ctrl+O
-        name: "open_conf",
-        mod_keys: [ModKey::Win, ModKey::Alt, ModKey::Ctrl],
-        vkey: VKey::O,
-    },
-];
 
-const TIME_BOOL: bool = false;
 const AUTOSTART_BOOL: bool = false;
 
 const DEFAULT_GUI: &str =
     "rect,ellipse,arrow,number,line,text,mosaic,eraser,|,undo,redo,|,pin,clipboard,save,close";
-
-// 辅助函数：将快捷键结构转换为配置文件字符串格式
-fn key_to_string(key: &KeyVkGroups) -> String {
-    let mod_keys = key
-        .mod_keys
-        .iter()
-        .filter(|&&m| m != ModKey::NoRepeat)
-        .map(|m| match m {
-            ModKey::Alt => "Alt",
-            ModKey::Ctrl => "Ctrl",
-            ModKey::Shift => "Shift",
-            ModKey::Win => "Win",
-            _ => "",
-        })
-        .collect::<Vec<_>>()
-        .join("+");
-
-    format!("{}@{}", mod_keys, key.vkey)
-}
 
 /// 解析路径字符串为PathBuf
 ///
@@ -128,6 +81,54 @@ fn resolve_path(path: &str) -> PathBuf {
 /// * 解析保存路径设置
 /// * 当配置无效时使用默认值
 pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
+    // 创建一个默认的快捷键配置 HashMap
+    let mut default_settings: KeyVkGroups = HashMap::new();
+
+    // 添加截屏快捷键
+    default_settings.insert(
+        "screen_capture",
+        HotkeyValue {
+            mod_keys: vec![ModKey::Win, ModKey::Alt, ModKey::Ctrl],
+            vkey: VKey::P,
+        },
+    );
+
+    // 添加截长屏快捷键
+    default_settings.insert(
+        "screen_capture_long",
+        HotkeyValue {
+            mod_keys: vec![ModKey::Win, ModKey::Alt, ModKey::Ctrl],
+            vkey: VKey::L,
+        },
+    );
+
+    // 添加钉图快捷键
+    default_settings.insert(
+        "pin_to_screen",
+        HotkeyValue {
+            mod_keys: vec![ModKey::Win, ModKey::Alt, ModKey::Ctrl],
+            vkey: VKey::T,
+        },
+    );
+
+    // 添加退出程序快捷键
+    default_settings.insert(
+        "exit",
+        HotkeyValue {
+            mod_keys: vec![ModKey::Win, ModKey::Ctrl, ModKey::Shift],
+            vkey: VKey::Escape,
+        },
+    );
+
+    // 添加打开设置快捷键
+    default_settings.insert(
+        "open_conf",
+        HotkeyValue {
+            mod_keys: vec![ModKey::Win, ModKey::Alt, ModKey::Ctrl],
+            vkey: VKey::O,
+        },
+    );
+
     // 尝试读取TOML配置文件
     let config_content = match fs::read_to_string(conf_path) {
         Ok(content) => content,
@@ -135,9 +136,8 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
             eprintln!("Failed to read config file: {}", e);
             // 返回默认配置
             return SettingsCollection {
-                keys_collection: DEFAULT_SETTING.clone(),
+                keys_collection: default_settings.clone(),
                 path: PathBuf::new(),
-                time: false,
                 auto_start: false,
                 gui_conf: format!("--tool:\"{}\"", DEFAULT_GUI),
             };
@@ -151,9 +151,8 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
             eprintln!("Failed to parse config file: {}", e);
             // 返回默认配置
             return SettingsCollection {
-                keys_collection: DEFAULT_SETTING.clone(),
+                keys_collection: default_settings.clone(),
                 path: PathBuf::new(),
-                time: false,
                 auto_start: false,
                 gui_conf: format!("--tool:\"{}\"", DEFAULT_GUI),
             };
@@ -167,13 +166,12 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
             eprintln!("Hotkey section missing in config file");
             // 返回默认配置，但保留其他可能有效的设置
             let path = get_path_from_config(&config);
-            let (time_bool, startup_bool) = get_sundry_settings(&config);
+            let  startup_bool = get_sundry_settings(&config);
             let gui_config = get_gui_config(&config);
 
             return SettingsCollection {
-                keys_collection: DEFAULT_SETTING.clone(),
+                keys_collection: default_settings.clone(),
                 path,
-                time: time_bool,
                 auto_start: startup_bool,
                 gui_conf: gui_config,
             };
@@ -181,60 +179,54 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
     };
 
     // 将配置字符串转换为KeyStringGroups结构
-    let mut string_groups: Vec<KeyStringGroups> = Vec::new();
+    let mut user_settings: KeyVkGroups = HashMap::new();
 
-    // 确保配置项顺序与DEFAULT_SETTING匹配
-    for default_key in DEFAULT_SETTING.iter() {
-        if let Some(value) = hotkey_table.get(default_key.name).and_then(|v| v.as_str()) {
+    for (default_k, default_v) in default_settings {
+        if let Some(custom_hotkey) = hotkey_table.get(default_k).and_then(|v| v.as_str()) {
             // 提取修饰键和主键
-            let parts: Vec<&str> = value.split('@').collect();
+            let parts: Vec<&str> = custom_hotkey.split('@').collect();
             if parts.len() != 2 {
                 // 格式错误，使用默认值
-                eprintln!("Invalid hotkey format for {}: {}", default_key.name, value);
-                let default_value = key_to_string(default_key);
-                let parts: Vec<&str> = default_value.split('@').collect();
-                let mod_keys = parts[0].split('+').map(String::from).collect();
-                let vkey = parts[1].to_string();
-                string_groups.push(KeyStringGroups { mod_keys, vkey });
+                eprintln!("Invalid hotkey format for {}: {}", default_k, custom_hotkey);
+                user_settings.insert(default_k, default_v.clone());
             } else {
-                let mod_keys = parts[0].split('+').map(String::from).collect();
-                let vkey = parts[1].to_string();
-                string_groups.push(KeyStringGroups { mod_keys, vkey });
+                let temp = KeyStringGroups {
+                    mod_keys: parts[0].split('+').map(String::from).collect(),
+                    vkey: parts[1].to_string(),
+                };
+
+                match match_keys(&temp) {
+                    (true, mvks, vk) => {
+                        user_settings.insert(
+                            default_k,
+                            HotkeyValue {
+                                mod_keys: mvks,
+                                vkey: vk,
+                            },
+                        );
+                    }
+                    (false, _, _) => {
+                        // Invalid configuration, use default value
+                        user_settings.insert(default_k, default_v.clone());
+                    }
+                }
             }
         } else {
             // 如果配置中缺少该项，使用默认值
-            let default_value = key_to_string(default_key);
-            let parts: Vec<&str> = default_value.split('@').collect();
-            let mod_keys = parts[0].split('+').map(String::from).collect();
-            let vkey = parts[1].to_string();
-            string_groups.push(KeyStringGroups { mod_keys, vkey });
-        }
-    }
-
-    // 将KeyStringGroups转换为KeyVkGroups，无效配置使用默认值
-    let mut result_groups: Vec<KeyVkGroups> = Vec::new();
-    for (i, string_group) in string_groups.into_iter().enumerate() {
-        let (status, mut result) = match_keys(&string_group);
-        if status {
-            // 设置正确的名称
-            result.name = DEFAULT_SETTING[i].name;
-            result_groups.push(result);
-        } else {
-            // 无效配置，使用默认值
-            result_groups.push(DEFAULT_SETTING[i].clone());
+            user_settings.insert(default_k, default_v.clone());
         }
     }
 
     // 获取路径和其他设置
     let path_result = get_path_from_config(&config);
-    let (time_bool, startup_bool) = get_sundry_settings(&config);
+    let  startup_bool = get_sundry_settings(&config);
     let gui_config = get_gui_config(&config);
+    println!("{}", &gui_config);
 
     // 返回最终配置集合
     SettingsCollection {
-        keys_collection: result_groups.try_into().unwrap_or(DEFAULT_SETTING.clone()),
+        keys_collection: user_settings,
         path: path_result.clone(),
-        time: time_bool && path_result.exists(),
         auto_start: startup_bool,
         gui_conf: gui_config,
     }
@@ -267,14 +259,8 @@ fn get_path_from_config(config: &Value) -> PathBuf {
 }
 
 // 获取sundry设置
-fn get_sundry_settings(config: &Value) -> (bool, bool) {
+fn get_sundry_settings(config: &Value) -> bool {
     let sundry_section = config.get("sundry").and_then(|v| v.as_table());
-
-    // 获取并处理以时间保存截图设置
-    let time_bool = sundry_section
-        .and_then(|t| t.get("time"))
-        .and_then(|v| v.as_bool())
-        .unwrap_or(TIME_BOOL);
 
     // 获取并处理自启动设置
     let startup_bool = sundry_section
@@ -282,7 +268,7 @@ fn get_sundry_settings(config: &Value) -> (bool, bool) {
         .and_then(|v| v.as_bool())
         .unwrap_or(AUTOSTART_BOOL);
 
-    (time_bool, startup_bool)
+     startup_bool
 }
 
 // 获取GUI配置
