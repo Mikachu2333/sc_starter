@@ -8,6 +8,7 @@
 use crate::types::{FileExist, PathInfos};
 use rust_embed::*;
 use std::{
+    collections::HashMap,
     fs,
     os::windows::{fs::MetadataExt, process::CommandExt},
     path::Path,
@@ -19,8 +20,8 @@ use std::{
     thread,
 };
 
-// ScreenCapture.exe v2.2.21 的文件大小
-const RES_SIZE: u64 = 7589888;
+// ScreenCapture.exe v2.2.24 的文件大小
+const RES_SIZE: u64 = 7614976;
 
 /// 检查所需文件是否存在及其状态
 ///
@@ -90,8 +91,8 @@ pub fn unzip_res(paths: &PathInfos, exists: &FileExist) {
         let _ = fs::write(&paths.conf_path, config_res.data.as_ref())
             .expect("Error write config file.");
         println!("Release config file.");
-        operate_exe(&paths.conf_path, "conf", &String::new());
-        operate_exe(Path::new(""), "restart", &String::new());
+        operate_exe(&paths.conf_path, "conf", HashMap::new());
+        operate_exe(Path::new(""), "restart", HashMap::new());
     } else {
         println!("No need to release.");
     }
@@ -111,7 +112,7 @@ pub fn unzip_res(paths: &PathInfos, exists: &FileExist) {
 /// - `exit`: 退出程序
 /// - `conf`: 打开配置s
 /// - `restart`: 程序重启
-pub fn operate_exe(path: &Path, mode: &str, gui: &String) {
+pub fn operate_exe(path: &Path, mode: &str, gui: HashMap<String, String>) {
     match mode {
         "pin" => {
             let _ = Command::new(path).arg("--pin:clipboard").spawn();
@@ -143,13 +144,29 @@ pub fn operate_exe(path: &Path, mode: &str, gui: &String) {
             std::process::exit(0);
         }
         parm => {
+            println!("parm: {:?}\narg: {:?}\n", parm, gui.clone());
             if parm.contains('*') {
                 let temp = parm.split('*').map(String::from);
-                println!("temp: {:?}", temp.clone().collect::<Vec<String>>());
-                let _ = Command::new(path).args(temp).arg(&gui).spawn();
+                let _ = Command::new(path)
+                    .args(temp)
+                    .arg({
+                        if parm.contains("long") {
+                            gui.get("long").unwrap()
+                        } else {
+                            gui.get("normal").unwrap()
+                        }
+                    })
+                    .spawn();
             } else {
-                println!("parm: {:?}", parm);
-                let _ = Command::new(path).arg(&gui).spawn();
+                let _ = Command::new(path)
+                    .arg({
+                        if parm.contains("long") {
+                            gui.get("long").unwrap()
+                        } else {
+                            gui.get("normal").unwrap()
+                        }
+                    })
+                    .spawn();
             }
         }
     }

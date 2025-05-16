@@ -7,6 +7,7 @@
 
 use crate::file_ops::operate_exe;
 use crate::types::*;
+use std::collections::HashMap;
 use std::sync::mpsc;
 use std::thread;
 use std::{path::PathBuf, thread::JoinHandle};
@@ -23,7 +24,7 @@ pub fn set_hotkeys(
     let exe_path = paths.exe_path.clone();
     let final_path = settings_collected.path.clone();
     let conf_path = paths.conf_path.clone();
-    let gui = settings_collected.gui_conf.clone();
+    let gui = settings_collected.gui.clone();
 
     let handle = thread::spawn(move || {
         let key_groups = settings_collected.keys_collection;
@@ -38,7 +39,7 @@ pub fn set_hotkeys(
             key_groups.get("screen_capture").unwrap().vkey,
             &key_groups.get("screen_capture").unwrap().mod_keys,
             move || {
-                operate_exe(&exe_path_clone, &parms_get(&final_path_clone), &gui_clone);
+                operate_exe(&exe_path_clone, &parms_get(&final_path_clone), gui_clone.clone());
             },
         );
         if hotkey_sc.is_err() {
@@ -57,7 +58,7 @@ pub fn set_hotkeys(
                 operate_exe(
                     &exe_path_clone,
                     &("--cap:long*".to_string() + &parms_get(&final_path_clone)),
-                    &gui_clone,
+                    gui_clone.clone(),
                 );
             },
         );
@@ -73,7 +74,7 @@ pub fn set_hotkeys(
             key_groups.get("pin_to_screen").unwrap().vkey,
             &key_groups.get("pin_to_screen").unwrap().mod_keys,
             move || {
-                operate_exe(&exe_path_clone, "pin", &gui_clone);
+                operate_exe(&exe_path_clone, "pin", gui_clone.clone());
             },
         );
         if hotkey_pin.is_err() {
@@ -84,7 +85,7 @@ pub fn set_hotkeys(
         let hotkey_conf = hkm.register(
             key_groups.get("open_conf").unwrap().vkey,
             &key_groups.get("open_conf").unwrap().mod_keys,
-            move || operate_exe(&conf_path, "conf", &String::new()),
+            move || operate_exe(&conf_path, "conf", HashMap::new()),
         );
         match hotkey_conf {
             Ok(_) => (),

@@ -23,9 +23,6 @@ use windows_hotkeys::keys::{ModKey, VKey};
 
 const AUTOSTART_BOOL: bool = false;
 
-const DEFAULT_GUI: &str =
-    "rect,ellipse,arrow,number,line,text,mosaic,eraser,|,undo,redo,|,pin,clipboard,save,close";
-
 /// 解析路径字符串为PathBuf
 ///
 /// ### 特殊路径符号
@@ -130,6 +127,17 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
         },
     );
 
+    let mut default_gui: HashMap<String, String> = HashMap::new();
+    default_gui.insert(
+        "normal".to_owned(),
+        "rect,ellipse,arrow,number,line,text,mosaic,eraser,|,undo,redo,|,pin,clipboard,save,close"
+            .to_owned(),
+    );
+    default_gui.insert(
+        "long".to_owned(),
+        "pin,clipboard,save,close".to_owned(),
+    );
+
     // 尝试读取TOML配置文件
     let config_content = match fs::read_to_string(conf_path) {
         Ok(content) => content,
@@ -140,7 +148,7 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
                 keys_collection: default_settings.clone(),
                 path: PathBuf::new(),
                 auto_start: false,
-                gui_conf: format!("--tool:\"{}\"", DEFAULT_GUI),
+                gui: default_gui,
             };
         }
     };
@@ -155,7 +163,7 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
                 keys_collection: default_settings.clone(),
                 path: PathBuf::new(),
                 auto_start: false,
-                gui_conf: format!("--tool:\"{}\"", DEFAULT_GUI),
+                gui:default_gui,
             };
         }
     };
@@ -166,21 +174,18 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
         None => {
             eprintln!("Hotkey section missing in config file");
             // 返回默认配置，但保留其他可能有效的设置
-            let path = get_path_from_config(&config);
-            let startup_bool = get_sundry_settings(&config);
-            let gui_config = get_gui_config(&config);
-
             return SettingsCollection {
                 keys_collection: default_settings.clone(),
-                path,
-                auto_start: startup_bool,
-                gui_conf: gui_config,
+                path: get_path_from_config(&config),
+                auto_start: get_sundry_settings(&config),
+                gui:default_gui,
             };
         }
     };
 
     // 将配置字符串转换为KeyStringGroups结构
     let mut user_settings: KeyVkGroups = HashMap::new();
+    let mut errors: Vec<String> = Vec::new();
 
     for (default_k, default_v) in default_settings {
         if let Some(custom_hotkey) = hotkey_table.get(default_k).and_then(|v| v.as_str()) {
@@ -188,7 +193,10 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
             let parts: Vec<&str> = custom_hotkey.split('@').collect();
             if parts.len() != 2 {
                 // 格式错误，使用默认值
-                eprintln!("Invalid hotkey format for {}: {}", default_k, custom_hotkey);
+                let error_message =
+                    format!("Invalid hotkey format for {}: {}", default_k, custom_hotkey);
+                eprintln!("{}", error_message);
+                errors.push(error_message);
                 user_settings.insert(default_k, default_v.clone());
             } else {
                 let temp = KeyStringGroups {
@@ -208,6 +216,12 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
                     }
                     (false, _, _) => {
                         // Invalid configuration, use default value
+                        let error_message = format!(
+                            "Invalid hotkey configuration for {}: {}",
+                            default_k, custom_hotkey
+                        );
+                        eprintln!("{}", error_message);
+                        errors.push(error_message);
                         user_settings.insert(default_k, default_v.clone());
                     }
                 }
@@ -218,18 +232,21 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
         }
     }
 
-    // 获取路径和其他设置
-    let path_result = get_path_from_config(&config);
-    let startup_bool = get_sundry_settings(&config);
-    let gui_config = get_gui_config(&config);
-    println!("{}", &gui_config);
+    // 在配置处理后通知用户错误
+    if !errors.is_empty() {
+        let error_message = format!("配置文件中存在以下问题:\n{}", errors.join("\n"));
+        let _ = std::process::Command::new("mshta")
+            .raw_arg(&format!("\"javascript:var sh=new ActiveXObject('WScript.Shell'); sh.Popup('{}',10,'Configuration Errors',48);close()\"", 
+                error_message.replace("\"", "'").replace("\n", "\\n")))
+            .spawn();
+    }
 
     // 返回最终配置集合
     SettingsCollection {
         keys_collection: user_settings,
-        path: path_result.clone(),
-        auto_start: startup_bool,
-        gui_conf: gui_config,
+        path: get_path_from_config(&config),
+        auto_start: get_sundry_settings(&config),
+        gui: get_gui_config(default_gui,&config),
     }
 }
 
@@ -242,7 +259,8 @@ fn get_path_from_config(config: &Value) -> PathBuf {
                 // 规范化路径字符串
                 dir.replace("\\", "/")
                     .replace("//", "/")
-                    .trim_matches(['\\', '/', '\n', '\r', '"', '\'', ' ', '\t'])
+                    .trim()
+                    .trim_matches(['\\', '/', '"', '\''])
                     .to_string()
             } else {
                 // 如果没有dir配置，使用默认值
@@ -273,16 +291,31 @@ fn get_sundry_settings(config: &Value) -> bool {
 }
 
 // 获取GUI配置
-fn get_gui_config(config: &Value) -> String {
+fn get_gui_config(default:HashMap<String,String>,config: &Value) -> HashMap<String, String> {
+    let mut temp: HashMap<String, String> = HashMap::new();
     let gui_config = config
         .get("sundry")
         .and_then(|v| v.as_table())
         .and_then(|t| t.get("gui_config"))
         .and_then(|v| v.as_str())
-        .unwrap_or(DEFAULT_GUI)
+        .unwrap_or(default.get("normal").unwrap())
         .to_string();
 
-    format!(r#"--tool:"{}""#, gui_config)
+    temp.insert("normal".to_owned(), format!(r#"--tool:"{}""#, gui_config));
+
+    let gui_long_config = config
+        .get("sundry")
+        .and_then(|v| v.as_table())
+        .and_then(|t| t.get("long_gui_config"))
+        .and_then(|v| v.as_str())
+        .unwrap_or(default.get("long").unwrap())
+        .to_string();
+
+    temp.insert(
+        "long".to_owned(),
+        format!(r#"--tool:"{}""#, gui_long_config),
+    );
+    temp
 }
 
 /// 设置或更新启动时运行的快捷方式

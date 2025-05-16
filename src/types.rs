@@ -38,7 +38,7 @@ pub struct SettingsCollection {
     /// 是否自动启动程序
     pub auto_start: bool,
     /// GUI配置参数
-    pub gui_conf: String,
+    pub gui: HashMap<String, String>,
 }
 impl std::fmt::Display for SettingsCollection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -51,15 +51,32 @@ impl std::fmt::Display for SettingsCollection {
 
         write!(
             f,
-            "\n----------\nHotkeys Settings:\n  Screenshot:\t\t{}\n  Long Screenshot:\t{}\n  Pin Image:\t\t{}\n  Exit:\t\t\t{}\n  Config:\t\t{}\n\nSave Path:\t\t{:?}\nAuto Startup:\t\t{}\nGUI:\t\t\t{}\n----------\n\n",
+            r#"
+----------
+Hotkeys Settings:
+    Screenshot:       {}
+    Long Screenshot:  {}
+    Pin Image:        {}
+    Exit:             {}
+    Config:           {}
+
+Sundry:
+    Save Path:    {}
+    Auto Startup: {}
+    GUI:
+        Normal: {}
+        Long:   {}
+----------
+"#,
             get_key_str("screen_capture"),
             get_key_str("screen_capture_long"),
             get_key_str("pin_to_screen"),
             get_key_str("exit"),
             get_key_str("open_conf"),
-            self.path,
+            self.path.display(),
             self.auto_start,
-            self.gui_conf.split('"').collect::<Vec<&str>>().get(1).unwrap_or(&"")
+            self.gui.get("normal").unwrap(),
+            self.gui.get("long").unwrap()
         )
     }
 }

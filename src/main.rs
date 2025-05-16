@@ -14,6 +14,7 @@ use crate::types::*;
 
 use single_instance;
 use single_instance::SingleInstance;
+use std::collections::HashMap;
 use std::{
     os::windows::process::CommandExt,
     path::PathBuf,
@@ -88,7 +89,7 @@ fn main() {
     // 处理用户与托盘图标的交互，如点击和双击事件
     let exe_path = path_infos.exe_path.clone();
     let save_path = settings.path.clone();
-    let gui = settings.gui_conf.clone();
+    let gui = settings.gui.clone();
 
     let event_handler = std::thread::spawn(move || {
         while let Ok(event) = event_receiver.recv() {
@@ -96,13 +97,14 @@ fn main() {
             if !*running_clone.lock().unwrap() {
                 break;
             }
+            let gui_clone = gui.clone();
 
             match event {
                 // 左键双击：触发截图
                 TrayIconEvent::DoubleClick { button, .. } => {
                     if button == MouseButton::Left {
                         let temp = parms_get(&save_path);
-                        operate_exe(&exe_path, &temp, &gui);
+                        operate_exe(&exe_path, &temp, gui_clone.clone());
                     }
                 }
                 // 单击事件处理
@@ -115,11 +117,11 @@ fn main() {
                         if button == MouseButton::Right {
                             // 右键单击：退出程序
                             *running_clone.lock().unwrap() = false;
-                            operate_exe(&PathBuf::new(), "exit", &String::new());
+                            operate_exe(&PathBuf::new(), "exit", HashMap::new());
                             break;
                         } else {
                             // 左键单击：触发截图
-                            operate_exe(&exe_path, &parms_get(&save_path), &gui);
+                            operate_exe(&exe_path, &parms_get(&save_path), gui_clone.clone());
                         }
                     }
                 }

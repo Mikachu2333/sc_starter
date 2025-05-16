@@ -79,3 +79,4 @@ startup = false
 # save：保存
 # close：关闭
 gui_config = "rect,ellipse,arrow,number,line,text,mosaic,eraser,|,undo,redo,|,pin,clipboard,save,close"
+long_gui_config = "pin,clipboard,save,close"
