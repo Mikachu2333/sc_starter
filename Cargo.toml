@@ -1,6 +1,6 @@
 [package]
 name = "SC_Starter"
-version = "2.5.27"
+version = "2.6.0"
 edition = "2021"
 
 [profile.release]

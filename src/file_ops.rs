@@ -10,7 +10,7 @@ use rust_embed::*;
 use std::{
     collections::HashMap,
     fs,
-    os::windows::{fs::MetadataExt, process::CommandExt},
+    os::windows::process::CommandExt,
     path::Path,
     process::Command,
     sync::{
@@ -20,8 +20,8 @@ use std::{
     thread,
 };
 
-// ScreenCapture.exe v2.2.27 的文件大小
-const RES_SIZE: u64 = 7614976;
+// ScreenCapture.exe v2.2.28
+const RES_HASH: &str = "FA44AB496F3A7A1C8563FF7C4B8530F9";
 
 /// 检查所需文件是否存在及其状态
 ///
@@ -49,7 +49,6 @@ pub fn check_res_exist(infos: &PathInfos) -> FileExist {
     files_exist.conf_exist = infos.conf_path.exists();
 
     if files_exist.exe_exist {
-        files_exist.exe_exist = true;
         files_exist.exe_latest = check_exe_latest(&infos.exe_path);
     }
     files_exist
@@ -58,8 +57,15 @@ pub fn check_res_exist(infos: &PathInfos) -> FileExist {
 /// 检查exe文件是否为最新版本
 /// 通过对比文件大小判断
 fn check_exe_latest(file_path: &Path) -> bool {
-    let in_size = file_path.metadata().unwrap().file_size();
-    in_size == RES_SIZE
+    let hash = std::process::Command::new("certutil")
+        .arg("-hashfile")
+        .arg(file_path)
+        .arg("MD5")
+        .output()
+        .expect("Failed to execute command");
+    let binding = String::from_utf8_lossy(&hash.stdout);
+    let md5 = binding.lines().skip(1).next().unwrap().trim().to_ascii_uppercase();
+    RES_HASH == md5
 }
 
 /// 嵌入资源文件的结构体
@@ -85,16 +91,18 @@ pub fn unzip_res(paths: &PathInfos, exists: &FileExist) {
     if (!exists.exe_exist) || (!exists.exe_latest) {
         let _ = fs::write(&paths.exe_path, screen_capture_res.data.as_ref())
             .expect("Error write EXE file.");
-        println!("Release exe file.");
+        println!("EXE: Release exe file.");
+    } else {
+        println!("EXE: No need to release.");
     }
     if !exists.conf_exist {
         let _ = fs::write(&paths.conf_path, config_res.data.as_ref())
             .expect("Error write config file.");
-        println!("Release config file.");
+        println!("CONF: Release config file.");
         operate_exe(&paths.conf_path, "conf", HashMap::new());
         operate_exe(Path::new(""), "restart", HashMap::new());
     } else {
-        println!("No need to release.");
+        println!("CONF: No need to release.");
     }
 }
 
