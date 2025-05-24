@@ -5,7 +5,7 @@
 //! - 处理文件操作请求
 //! - 执行外部程序
 
-use crate::types::{FileExist, PathInfos};
+use crate::types::{FileExist, PathInfos,RES_HASH};
 use rust_embed::*;
 use std::{
     collections::HashMap,
@@ -19,9 +19,6 @@ use std::{
     },
     thread,
 };
-
-// ScreenCapture.exe v2.2.28
-const RES_HASH: &str = "FA44AB496F3A7A1C8563FF7C4B8530F9";
 
 /// 检查所需文件是否存在及其状态
 ///

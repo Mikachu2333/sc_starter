@@ -1,6 +1,8 @@
 use tray_icon::{Icon, TrayIconBuilder, TrayIconEvent};
 
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+use crate::types::RES_VERSION;
+
+const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub struct TrayManager {
     tray_icon: tray_icon::TrayIcon,
@@ -13,7 +15,7 @@ impl TrayManager {
         let icon = Icon::from_rgba(icon_data.to_vec(), 256, 256).expect("Embedded icon is invalid");
 
         let tray_icon = TrayIconBuilder::new()
-            .with_tooltip(format!("SC_Starter v{}", VERSION))
+            .with_tooltip(format!("SC_Starter v{}\nRES v{}", PKG_VERSION,RES_VERSION))
             .with_icon(icon)
             .build()
             .unwrap();
