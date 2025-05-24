@@ -140,7 +140,7 @@ impl HotkeyValue {
 
 /// Windows API格式的按键组合映射
 /// 用于实际注册系统热键
-/// /// 为KeyVkGroups类型添加方法的trait
+/// 键名对应：screen_capture, screen_capture_long, pin_to_screen, exit, open_conf
 pub type KeyVkGroups = HashMap<&'static str, HotkeyValue>;
 
 /// 将快捷键配置字符串转换为系统可用的按键组合
@@ -149,9 +149,10 @@ pub type KeyVkGroups = HashMap<&'static str, HotkeyValue>;
 /// - `groups`: 包含按键字符串的结构体
 ///
 /// ### 返回值
-/// - `(bool, KeyVkGroups)`: 转换状态和结果
+/// - `(bool, Vec<ModKey>, VKey)`: 转换状态和结果
 /// - 第一个值表示转换是否成功
-/// - 第二个值为转换后的按键组合
+/// - 第二个值为转换后的修饰键数组
+/// - 第三个值为转换后的主键值
 pub fn match_keys(groups: &KeyStringGroups) -> (bool, Vec<ModKey>, VKey) {
     let group1 = &groups.mod_keys;
     let group2 = groups.vkey.as_ref();

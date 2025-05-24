@@ -1,3 +1,12 @@
+//! SC_Starter 主程序模块
+//!
+//! 本模块是程序的入口点，负责：
+//! - 程序单例检测，防止多开
+//! - 初始化程序路径和配置
+//! - 创建托盘图标和事件处理
+//! - 注册全局快捷键
+//! - 启动主事件循环
+
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 // 导入各个模块
 mod config;
@@ -29,6 +38,15 @@ use tray_icon::TrayIconEvent;
 /// 防止程序多开造成快捷键冲突
 const PROCESS_ID: &str = "78D83F24ADEC8FAF2E4CC1795F166CE4";
 
+/// 程序主入口函数
+/// 
+/// ### 功能流程
+/// 1. 检查程序单例运行
+/// 2. 初始化程序路径和文件
+/// 3. 读取配置文件
+/// 4. 创建托盘图标
+/// 5. 注册全局快捷键
+/// 6. 启动主事件循环
 fn main() {
     // 使用系统互斥锁确保程序单例运行，防止多个实例造成快捷键冲突
     let instance = Box::new(SingleInstance::new(PROCESS_ID).unwrap());

@@ -14,6 +14,18 @@ use std::{path::PathBuf, thread::JoinHandle};
 use windows_hotkeys::{singlethreaded::HotkeyManager, HotkeyManagerImpl};
 
 /// 设置全局快捷键并返回事件发送器
+///
+/// ### 参数
+/// - `paths`: 程序路径信息
+/// - `settings_collected`: 配置集合，包含快捷键设置
+///
+/// ### 返回值
+/// - `(JoinHandle<()>, mpsc::Sender<()>)`: 快捷键线程句柄和退出信号发送器
+///
+/// ### 功能
+/// - 在新线程中注册所有全局快捷键
+/// - 创建快捷键事件处理循环
+/// - 返回线程控制接口
 pub fn set_hotkeys(
     paths: &PathInfos,
     settings_collected: &SettingsCollection,

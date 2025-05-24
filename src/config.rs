@@ -11,16 +11,8 @@ use std::{collections::HashMap, fs, os::windows::process::CommandExt, path::Path
 use toml::Value;
 use windows_hotkeys::keys::{ModKey, VKey};
 
-/// 默认快捷键组合
+/// 默认自启动设置
 /// 当配置文件不存在或配置无效时使用
-///
-/// 包含五组快捷键：
-/// 1. 截屏：Win+Alt+Ctrl+P
-/// 2. 截长屏：Win+Alt+Ctrl+L
-/// 3. 钉图：Win+Alt+Ctrl+T
-/// 4. 退出：Win+Ctrl+Shift+Esc
-/// 5. 设置：Win+Alt+Ctrl+O
-
 const AUTOSTART_BOOL: bool = false;
 
 /// 解析路径字符串为PathBuf
@@ -38,7 +30,7 @@ const AUTOSTART_BOOL: bool = false;
 ///
 /// ### 说明
 /// - 自定义路径必须存在且为目录
-/// - 路径分隔符统一转换为系统标准格式
+/// - 无效路径时显示警告弹窗并返回空路径
 fn resolve_path(path: &str) -> PathBuf {
     match path {
         "&" => PathBuf::new(),
@@ -133,10 +125,7 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
         "rect,ellipse,arrow,number,line,text,mosaic,eraser,|,undo,redo,|,pin,clipboard,save,close"
             .to_owned(),
     );
-    default_gui.insert(
-        "long".to_owned(),
-        "pin,clipboard,save,close".to_owned(),
-    );
+    default_gui.insert("long".to_owned(), "pin,clipboard,save,close".to_owned());
 
     // 尝试读取TOML配置文件
     let config_content = match fs::read_to_string(conf_path) {
@@ -163,7 +152,7 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
                 keys_collection: default_settings.clone(),
                 path: PathBuf::new(),
                 auto_start: false,
-                gui:default_gui,
+                gui: default_gui,
             };
         }
     };
@@ -178,7 +167,7 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
                 keys_collection: default_settings.clone(),
                 path: get_path_from_config(&config),
                 auto_start: get_sundry_settings(&config),
-                gui:default_gui,
+                gui: default_gui,
             };
         }
     };
@@ -246,7 +235,7 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
         keys_collection: user_settings,
         path: get_path_from_config(&config),
         auto_start: get_sundry_settings(&config),
-        gui: get_gui_config(default_gui,&config),
+        gui: get_gui_config(default_gui, &config),
     }
 }
 
@@ -291,7 +280,7 @@ fn get_sundry_settings(config: &Value) -> bool {
 }
 
 // 获取GUI配置
-fn get_gui_config(default:HashMap<String,String>,config: &Value) -> HashMap<String, String> {
+fn get_gui_config(default: HashMap<String, String>, config: &Value) -> HashMap<String, String> {
     let mut temp: HashMap<String, String> = HashMap::new();
     let gui_config = config
         .get("sundry")
@@ -320,13 +309,14 @@ fn get_gui_config(default:HashMap<String,String>,config: &Value) -> HashMap<Stri
 
 /// 设置或更新启动时运行的快捷方式
 ///
-/// 此函数旨在根据给定的参数在指定的启动目录中创建或删除程序的快捷方式
-/// 它首先尝试删除任何现有的快捷方式，然后根据`renew`参数决定是否创建新的快捷方式
+/// ### 参数
+/// - `renew`: 是否创建新的快捷方式
+/// - `startup_dir`: 启动目录路径
+/// - `self_path`: 当前可执行文件路径
 ///
-/// 参数:
-/// - `renew`: 一个布尔值，指示是否创建新的快捷方式
-/// - `startup_dir`: 一个引用，指向包含启动快捷方式的目录的PathBuf对象
-/// - `self_path`: 一个引用，指向当前可执行文件路径的PathBuf对象
+/// ### 功能
+/// - 删除现有的快捷方式（如果存在）
+/// - 根据`renew`参数决定是否创建新的快捷方式
 pub fn set_startup(renew: bool, startup_dir: &PathBuf, self_path: &PathBuf) {
     // 生成快捷方式的名称，基于当前可执行文件的主名称
     let lnk_name = format!("{}.lnk", self_path.file_stem().unwrap().to_str().unwrap());

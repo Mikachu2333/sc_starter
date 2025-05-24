@@ -1,8 +1,11 @@
+# GitHub Actions workflow for Rust project
+# Builds and tests the SC_Starter application on Windows
 name: Rust
 
 on:
   push:
     branches: ["main"]
+    # Ignore documentation and configuration changes
     paths-ignore:
       - ".github/**"
       - ".gitignore"
@@ -11,6 +14,7 @@ on:
       - "LICENSE"
   pull_request:
     branches: ["main"]
+    # Ignore documentation and configuration changes
     paths-ignore:
       - ".github/**"
       - ".gitignore"
@@ -19,13 +23,18 @@ on:
       - "LICENSE"
 
 env:
+  # Enable colored output for cargo commands
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
+    # Use the latest available Windows runner
     runs-on: windows-latest
     steps:
+      # Checkout the repository source code
       - uses: actions/checkout@v4
+      
+      # Install and configure Rust toolchain
       - name: rust-toolchain-reborn
         uses: crusty-pie/toolchain@v1.0.8
         with:
@@ -34,9 +43,11 @@ jobs:
           default: true
           override: true
 
+      # Build the project in release mode
       - name: Build
         run: cargo b -r
 
+      # Upload the built executable as an artifact
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
