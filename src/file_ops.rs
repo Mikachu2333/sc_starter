@@ -58,6 +58,7 @@ fn check_exe_latest(file_path: &Path) -> bool {
         .arg("-hashfile")
         .arg(file_path)
         .arg("MD5")
+        .creation_flags(0x08000000)
         .output()
         .expect("Failed to execute command");
     let binding = String::from_utf8_lossy(&hash.stdout);
