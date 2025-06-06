@@ -1,8 +1,9 @@
 use std::{collections::HashMap, path::PathBuf};
 use windows_hotkeys::keys::{ModKey, VKey};
 
-// ScreenCapture.exe
-pub const RES_HASH: &str = "0C8BF92B66AFCA72E2A3F8D01F8FFEC7";
+/// ScreenCapture SHA1
+pub const RES_HASH: &str = "F353A0EC9AA2C69A7ACC7B4844530E00AB6CB2A6";
+/// ScreenCapture Version
 pub const RES_VERSION: &str = "2.3.1";
 
 /// 文件存在状态结构体

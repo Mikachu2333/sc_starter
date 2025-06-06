@@ -65,23 +65,23 @@ pub fn check_res_exist(infos: &PathInfos) -> FileExist {
 /// - `bool`: 如果文件MD5哈希值与预期的RES_HASH匹配，返回true
 ///
 /// ### 说明
-/// - 使用Windows系统的certutil工具计算MD5哈希值
+/// - 使用Windows系统的certutil工具计算哈希值
 /// - 通过CREATE_NO_WINDOW标志隐藏命令行窗口
 /// - 将计算结果与内置的RES_HASH常量进行比较
 fn check_exe_latest(file_path: &Path) -> bool {
     let hash = std::process::Command::new("certutil")
         .arg("-hashfile")
         .arg(file_path)
-        .arg("MD5")
+        .arg("SHA1")
         .creation_flags(0x08000000) // CREATE_NO_WINDOW - 隐藏命令行窗口
         .output()
         .expect("Failed to execute command");
-    let md5 = {
+    let hash_value = {
         let original = String::from_utf8_lossy(&hash.stdout);
         let line = original.lines().skip(1).next().unwrap();
         line.trim().to_ascii_uppercase()
     };
-    RES_HASH == md5
+    RES_HASH.to_ascii_uppercase() == hash_value
 }
 
 /// 嵌入资源文件的结构体
