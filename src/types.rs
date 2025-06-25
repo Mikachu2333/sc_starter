@@ -1,10 +1,10 @@
 use std::{collections::HashMap, path::PathBuf};
 use windows_hotkeys::keys::{ModKey, VKey};
 
-/// ScreenCapture SHA1
-pub const RES_HASH: &str = "F353A0EC9AA2C69A7ACC7B4844530E00AB6CB2A6";
-/// ScreenCapture Version
-pub const RES_VERSION: &str = "2.3.1";
+/// EMBEDDED ScreenCapture Hash Value (SHA1)
+pub const RES_HASH: &str = "9D0655C41D1C05475C458A5091D6DE01034B0C5B";
+/// EMBEDDED ScreenCapture Version
+pub const RES_VERSION: &str = "2.3.2";
 
 /// 文件存在状态结构体
 /// 用于跟踪主程序所需的关键文件状态
