@@ -39,7 +39,7 @@ use tray_icon::TrayIconEvent;
 const PROCESS_ID: &str = "78D83F24ADEC8FAF2E4CC1795F166CE4";
 
 /// 程序主入口函数
-/// 
+///
 /// ### 功能流程
 /// 1. 检查程序单例运行
 /// 2. 初始化程序路径和文件
@@ -90,7 +90,7 @@ fn main() {
         //println!("{}", str_path[0]);
         PathBuf::from(str_path.first().unwrap())
     };
-    set_startup(settings.auto_start, &temp, &self_path);
+    set_startup(settings.sundry.auto_start, &temp, &self_path);
 
     // 创建托盘图标管理器
     let tray_manager = TrayManager::new();
@@ -118,11 +118,18 @@ fn main() {
             let gui_clone = gui.clone();
 
             match event {
-                // 左键双击：触发截图
+                // 左键双击：触发截长屏
                 TrayIconEvent::DoubleClick { button, .. } => {
                     if button == MouseButton::Left {
-                        let temp = parms_get(&save_path);
-                        operate_exe(&exe_path, &temp, gui_clone.clone());
+                        let args = [
+                            "--cap:long".to_string(),
+                            format!(
+                                "--comp:{},{}",
+                                settings.sundry.comp_level, settings.sundry.scale_level
+                            ),
+                            save_path_get(&save_path),
+                        ].to_vec();
+                        operate_exe(&exe_path, args, gui_clone.clone());
                     }
                 }
                 // 单击事件处理
@@ -138,8 +145,15 @@ fn main() {
                             operate_exe(&PathBuf::new(), "exit", HashMap::new());
                             break;
                         } else {
-                            // 左键单击：触发截图
-                            operate_exe(&exe_path, &parms_get(&save_path), gui_clone.clone());
+                            // 左键单击：触发普通截图
+                            let args = [
+                                format!(
+                                    "--comp:{},{}",
+                                    settings.sundry.comp_level, settings.sundry.scale_level
+                                ),
+                                save_path_get(&save_path),
+                            ].to_vec();
+                            operate_exe(&exe_path, args, gui_clone.clone());
                         }
                     }
                 }

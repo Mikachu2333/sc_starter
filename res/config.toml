@@ -64,6 +64,16 @@ dir = "&"
 # true->启用, false->禁用
 startup = false
 
+# 图像压缩与缩放比例
+# Image compression and scaling ratio settings
+# 压缩等级：0-10（清晰->模糊），-1代表默认
+# 缩放：1%-100%，（模糊->清晰）
+# Compression level: 0-10 (clear->blur), -1 for default
+# Scale: 1%-100% (blur->clear)
+comp_level = -1
+scale_ratio = 100
+
+[gui]
 # GUI配置，默认全部启用
 # rect：方框
 # ellipse：椭圆
@@ -79,4 +89,6 @@ startup = false
 # save：保存
 # close：关闭
 gui_config = "rect,ellipse,arrow,number,line,text,mosaic,eraser,|,undo,redo,|,pin,clipboard,save,close"
+# 参数只少不多
+# Only fewer parameters are allowed
 long_gui_config = "pin,clipboard,save,close"

@@ -19,7 +19,12 @@ use std::{
         mpsc, Arc,
     },
     thread,
+    time::Duration,
 };
+
+const T_SEC_1_10: Duration = std::time::Duration::from_millis(100);
+const T_SEC_3: Duration = std::time::Duration::from_secs(3);
+const T_SEC_5: Duration = std::time::Duration::from_secs(5);
 
 /// 检查所需文件是否存在及其状态
 ///
@@ -129,6 +134,52 @@ pub fn unzip_res(paths: &PathInfos, exists: &FileExist) {
 ///
 /// ### 参数
 /// - `path`: 要操作的程序路径
+/// - `mode`: 操作模式，可以是字符串或字符串向量
+/// - `gui`: GUI相关参数的HashMap，包含normal和long模式的参数
+///
+/// ### 操作模式
+/// - 字符串模式:
+///   - `pin`: 启动钉图功能，从剪贴板获取图像并钉在屏幕上
+///   - `exit`: 退出程序，显示退出消息后终止进程
+///   - `conf`: 使用记事本打开配置文件进行编辑
+///   - `restart`: 显示重启提示消息并退出程序
+///   - 其他包含参数的模式: 执行截屏相关操作
+/// - 向量模式: 直接将向量中的所有参数传递给程序
+pub fn operate_exe<T>(path: &Path, mode: T, gui: HashMap<String, String>)
+where
+    T: OperateMode,
+{
+    mode.execute(path, gui);
+}
+
+/// 操作模式trait，定义不同类型的执行方式
+///
+/// ### 说明
+/// - 为 `&str` 实现时执行字符串模式逻辑（向后兼容原有功能）
+/// - 为 `Vec<String>` 实现时执行向量模式逻辑（直接传递参数列表）
+/// - 允许 `operate_exe` 函数接受不同类型的模式参数
+pub trait OperateMode {
+    fn execute(self, path: &Path, gui: HashMap<String, String>);
+}
+
+/// 为字符串实现操作模式
+impl OperateMode for &str {
+    fn execute(self, path: &Path, gui: HashMap<String, String>) {
+        execute_string_mode(path, self, gui);
+    }
+}
+
+/// 为字符串向量实现操作模式
+impl OperateMode for Vec<String> {
+    fn execute(self, path: &Path, gui: HashMap<String, String>) {
+        execute_vector_mode(path, self, gui);
+    }
+}
+
+/// 执行字符串模式的内部函数
+///
+/// ### 参数
+/// - `path`: 要操作的程序路径
 /// - `mode`: 操作模式字符串
 /// - `gui`: GUI相关参数的HashMap，包含normal和long模式的参数
 ///
@@ -137,10 +188,8 @@ pub fn unzip_res(paths: &PathInfos, exists: &FileExist) {
 /// - `exit`: 退出程序，显示退出消息后终止进程
 /// - `conf`: 使用记事本打开配置文件进行编辑
 /// - `restart`: 显示重启提示消息并退出程序
-/// - 其他包含参数的模式: 执行截屏相关操作
-///   - 如果包含'*'，会按'*'分割参数
-///   - 根据是否包含"long"选择对应的GUI参数
-pub fn operate_exe(path: &Path, mode: &str, gui: HashMap<String, String>) {
+/// - 其他参数模式: 执行截屏相关操作，支持按'*'分割的多参数格式
+fn execute_string_mode(path: &Path, mode: &str, gui: HashMap<String, String>) {
     match mode {
         "pin" => {
             let _ = Command::new(path).arg("--pin:clipboard").spawn();
@@ -153,7 +202,7 @@ pub fn operate_exe(path: &Path, mode: &str, gui: HashMap<String, String>) {
                 .spawn();
 
             // 给一个短暂的延时让消息显示出来
-            std::thread::sleep(std::time::Duration::from_millis(100));
+            std::thread::sleep(T_SEC_1_10);
             std::process::exit(0)
         }
         "conf" => {
@@ -166,7 +215,7 @@ pub fn operate_exe(path: &Path, mode: &str, gui: HashMap<String, String>) {
             };
         }
         "restart" => {
-            std::thread::sleep(std::time::Duration::from_secs(3));
+            std::thread::sleep(T_SEC_3);
             let _ = std::process::Command::new("mshta")
             .raw_arg("\"javascript:var sh=new ActiveXObject('WScript.Shell'); sh.Popup('Please restart the program to apply your custom settings.',3,'Info',64);close()\"").spawn();
             std::process::exit(0);
@@ -200,6 +249,45 @@ pub fn operate_exe(path: &Path, mode: &str, gui: HashMap<String, String>) {
             }
         }
     }
+}
+
+/// 执行向量模式的内部函数
+///
+/// ### 参数
+/// - `path`: 要执行的程序路径
+/// - `args`: 参数向量，包含所有命令行参数
+/// - `gui`: GUI相关参数的HashMap，包含normal和long模式的参数
+///
+/// ### 功能
+/// - 直接将向量中的所有参数传递给程序
+/// - 根据参数中是否包含"long"选择对应的GUI参数
+/// - 自动添加GUI参数（如果非空）
+/// - 异步启动程序，不阻塞主线程
+fn execute_vector_mode(path: &Path, args: Vec<String>, gui: HashMap<String, String>) {
+    println!("args: {:?}\n", &args);
+
+    let default_empty = String::new();
+    let mut command = Command::new(path);
+
+    // 添加所有向量中的参数
+    for arg in &args {
+        command.arg(arg);
+    }
+
+    // 根据是否包含long参数决定GUI设置
+    let has_long = args.iter().any(|arg| arg.contains("long"));
+
+    let gui_arg = if has_long {
+        gui.get("long").unwrap_or(&default_empty)
+    } else {
+        gui.get("normal").unwrap_or(&default_empty)
+    };
+
+    if !gui_arg.is_empty() {
+        command.arg(gui_arg);
+    }
+
+    let _ = command.spawn();
 }
 
 /// 监控并保护核心文件
@@ -243,7 +331,7 @@ pub fn avoid_exe_del(paths: &PathInfos) -> Arc<AtomicBool> {
                     }
                 }
             }
-            thread::sleep(std::time::Duration::from_secs(5));
+            thread::sleep(T_SEC_5);
         }
     });
 

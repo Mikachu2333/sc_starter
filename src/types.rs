@@ -1,9 +1,9 @@
 use std::{collections::HashMap, path::PathBuf};
 use windows_hotkeys::keys::{ModKey, VKey};
 
-/// EMBEDDED ScreenCapture Hash Value (SHA1)
+/// EMBEDDED ScreenCapture 哈希值 (SHA1)
 pub const RES_HASH: &str = "9D0655C41D1C05475C458A5091D6DE01034B0C5B";
-/// EMBEDDED ScreenCapture Version
+/// EMBEDDED ScreenCapture 版本号
 pub const RES_VERSION: &str = "2.3.2";
 
 /// 文件存在状态结构体
@@ -27,6 +27,27 @@ impl Default for FileExist {
     }
 }
 
+/// 杂项设置结构体
+/// 存储程序的各种辅助配置
+#[derive(Clone, Debug)]
+pub struct Sundry {
+    /// 是否自动启动程序
+    pub auto_start: bool,
+    /// 图像压缩
+    pub comp_level: i32,
+    /// 图像缩放
+    pub scale_level: i32,
+}
+impl Default for Sundry {
+    fn default() -> Self {
+        Sundry {
+            auto_start: false,
+            comp_level: -1,
+            scale_level: 100,
+        }
+    }
+}
+
 /// 设置集合结构体
 /// 存储程序的所有配置信息
 #[derive(Clone, Debug)]
@@ -40,8 +61,9 @@ pub struct SettingsCollection {
     pub keys_collection: KeyVkGroups,
     /// 截图保存路径
     pub path: PathBuf,
-    /// 是否自动启动程序
-    pub auto_start: bool,
+    /// 杂项设置
+    /// 包含自动启动、图像压缩和缩放设置
+    pub sundry: Sundry,
     /// GUI配置参数
     pub gui: HashMap<String, String>,
 }
@@ -68,6 +90,8 @@ Hotkeys Settings:
 Sundry:
     Save Path:    {}
     Auto Startup: {}
+    Comp Level:   {}
+    Scale Level:  {}
     GUI:
         Normal: {}
         Long:   {}
@@ -79,7 +103,9 @@ Sundry:
             get_key_str("exit"),
             get_key_str("open_conf"),
             self.path.display(),
-            self.auto_start,
+            self.sundry.auto_start,
+            self.sundry.comp_level,
+            self.sundry.scale_level,
             self.gui.get("normal").unwrap(),
             self.gui.get("long").unwrap()
         )

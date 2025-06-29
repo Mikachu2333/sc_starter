@@ -7,11 +7,15 @@
 
 use crate::file_ops::operate_exe;
 use crate::types::*;
-use std::collections::HashMap;
-use std::sync::mpsc;
-use std::thread;
-use std::{path::PathBuf, thread::JoinHandle};
+use std::{
+    collections::HashMap,
+    sync::mpsc,
+    thread,
+    {path::PathBuf, thread::JoinHandle},
+};
 use windows_hotkeys::{singlethreaded::HotkeyManager, HotkeyManagerImpl};
+
+const T_SEC_1_100: std::time::Duration = std::time::Duration::from_millis(10);
 
 /// 设置全局快捷键并返回事件发送器
 ///
@@ -33,6 +37,8 @@ pub fn set_hotkeys(
     let settings_collected = settings_collected.clone();
     let (exit_tx, exit_rx) = mpsc::channel();
 
+    let comp = settings_collected.sundry.comp_level.to_string();
+    let scale = settings_collected.sundry.scale_level.to_string();
     let exe_path = paths.exe_path.clone();
     let final_path = settings_collected.path.clone();
     let conf_path = paths.conf_path.clone();
@@ -42,6 +48,8 @@ pub fn set_hotkeys(
         let key_groups = settings_collected.keys_collection;
         let mut hkm = HotkeyManager::new();
 
+        let comp_clone = comp.clone();
+        let scale_clone = scale.clone();
         let exe_path_clone = exe_path.clone();
         let final_path_clone = final_path.clone();
         let gui_clone = gui.clone();
@@ -51,13 +59,20 @@ pub fn set_hotkeys(
             key_groups.get("screen_capture").unwrap().vkey,
             &key_groups.get("screen_capture").unwrap().mod_keys,
             move || {
-                operate_exe(&exe_path_clone, &parms_get(&final_path_clone), gui_clone.clone());
+                let args = [
+                    format!("--comp:{},{}", comp_clone, scale_clone),
+                    save_path_get(&final_path_clone),
+                ]
+                .to_vec();
+                operate_exe(&exe_path_clone, args, gui_clone.clone());
             },
         );
         if hotkey_sc.is_err() {
             panic!("Failed reg Hotkey sc.");
         };
 
+        let comp_clone = comp.clone();
+        let scale_clone = scale.clone();
         let exe_path_clone = exe_path.clone();
         let gui_clone = gui.clone();
         let final_path_clone = final_path.clone();
@@ -67,15 +82,17 @@ pub fn set_hotkeys(
             key_groups.get("screen_capture_long").unwrap().vkey,
             &key_groups.get("screen_capture_long").unwrap().mod_keys,
             move || {
-                operate_exe(
-                    &exe_path_clone,
-                    &("--cap:long*".to_string() + &parms_get(&final_path_clone)),
-                    gui_clone.clone(),
-                );
+                let args = [
+                    "--cap:long".to_string(),
+                    format!("--comp:{},{}", comp_clone, scale_clone),
+                    save_path_get(&final_path_clone),
+                ]
+                .to_vec();
+                operate_exe(&exe_path_clone, args, gui_clone.clone());
             },
         );
         if hotkey_scl.is_err() {
-            panic!("Failed reg Hotkey sc.");
+            panic!("Failed reg Hotkey scl.");
         };
 
         let exe_path_clone = exe_path.clone();
@@ -119,6 +136,7 @@ pub fn set_hotkeys(
         while exit_rx.try_recv().is_err() {
             // 处理所有等待的消息
             hkm.handle_hotkey();
+            std::thread::sleep(T_SEC_1_100);
         }
     });
 
@@ -134,18 +152,13 @@ pub fn set_hotkeys(
 /// - `String`: 格式化后的命令行参数字符串
 ///   - 如果路径为空，返回空字符串，表示使用默认路径
 ///   - 否则返回格式化的 --path:"路径" 参数
-pub fn parms_get(save_path: &PathBuf) -> String {
-    let mut parm: Vec<String> = Vec::new();
-    if save_path != &PathBuf::new() {
-        parm.push(format!(
+pub fn save_path_get(save_path: &PathBuf) -> String {
+    if save_path == &PathBuf::new() {
+        String::new()
+    } else {
+        format!(
             r#"--path:"{}""#,
             save_path.to_str().unwrap().replace("\\", "/")
-        ));
-    }
-
-    if parm.is_empty() {
-        "".to_string()
-    } else {
-        parm.join("*")
+        )
     }
 }
