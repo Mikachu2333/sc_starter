@@ -1,76 +1,128 @@
-# sc_starter
+# SC_Starter
 
-A starter for ScreenCapture
+本软件是 [ScreenCapture](https://github.com/xland/ScreenCapture) 的启动器
+
+A launcher and manager for ScreenCapture with global hotkeys and tray integration.
 
 ## 功能说明 / Features
 
-本软件是 [ScreenCapture](https://github.com/xland/ScreenCapture) 的启动器，提供以下功能：
+### 核心功能 / Core Features
 
-- 内置截图程序，无需额外安装 / Related exe is embedded
-- 自动注册全局快捷键 / Auto reg hotkey
-- 支持自定义保存路径 / Support save pics in custom dir/path
-- 文件防删除保护 / Avoid related file deletion
-- 托盘左键单击截图，右键退出 / Left click tray icon to shot and Right to exit
-- 自启动设置 / Support Auto Startup
+- **内置截图程序** / Embedded ScreenCapture exe - 无需额外安装，一键运行
+- **全局快捷键** / Global Hotkeys - 系统级快捷键，任意位置触发
+- **路径管理** / Path Management - 支持多种保存方式和自定义路径
+- **文件保护机制** / File Protection - 自动监控和恢复核心文件
+- **单例运行** / Singleton Mode - 防止程序多开造成冲突
+- **托盘集成** / System Tray Integration - 便捷的托盘操作界面
 
-## 使用方法 / Usage
+### 托盘操作 / Tray Operations
 
-1. 默认快捷键 / Default Hotkeys:
-   - `Ctrl+Win+Alt+P`: 截屏 / Screen capture
-   - `Ctrl+Win+Alt+L`: 长截屏 / Long screenshot
-   - `Ctrl+Win+Alt+T`: 钉图 / Pin image
-   - `Win+Ctrl+Shift+Esc`: 退出 / Exit
-   - `Ctrl+Win+Alt+O`: 打开配置 / Open settings
+- **左键单击** / Left Click: 普通截图 / Normal screenshot
+- **左键双击** / Left Double Click: 长截图 / Long screenshot  
+- **右键单击** / Right Click: 退出程序 / Exit application
 
-2. 自定义设置 / Custom Settings:
-   - 使用 `Ctrl+Win+Alt+O` 打开配置文件 / Use `Ctrl+Win+Alt+O` to open config file
-   - 修改后保存并关闭文件 / Save and close file after modification
-   - 使用 `Win+Ctrl+Shift+Esc` 退出程序 / Use `Win+Ctrl+Shift+Esc` to exit program
-   - 重新启动程序应用新配置 / Restart program to apply new settings
+### 自启动支持 / Auto Startup
 
-## 配置说明 / Configuration
+- **开机自启** / Boot Startup - 可配置的开机自动启动
+- **配置管理** / Configuration Management - 自动创建和管理启动项
 
-配置文件包含三个部分：
+## 使用方法 / Usage Guide
 
-### [hotkey] 快捷键设置 / Hotkey Settings
+### 1. 快捷键操作 / Hotkey Operations
 
-- 格式：`控制键1+控制键2+...@实际键`
-- 示例：`Ctrl+Win+Alt@P`
-- 至少需要两个控制键
-- 支持的控制键：Win/Ctrl/Alt/Shift
-- 支持的实际键：字母A-Z、数字0-9、功能键F1-F24等
+#### 默认快捷键 / Default Hotkeys
 
-### [path] 保存路径设置 / Save Path Settings
+| 功能 / Function          | 快捷键 / Hotkey      | 说明 / Description                                   |
+| ------------------------ | -------------------- | ---------------------------------------------------- |
+| 普通截图 / Screenshot    | `Ctrl+Win+Alt+P`     | 矩形区域截图 / Rectangular area capture              |
+| 长截图 / Long Screenshot | `Ctrl+Win+Alt+L`     | 滚动截图 / Scrolling capture                         |
+| 钉图 / Pin Image         | `Ctrl+Win+Alt+T`     | 将剪贴板图片钉到屏幕 / Pin clipboard image to screen |
+| 打开配置 / Open Config   | `Ctrl+Win+Alt+O`     | 打开配置文件编辑 / Open config file for editing      |
+| 退出程序 / Exit          | `Win+Ctrl+Shift+Esc` | 完全退出程序 / Exit application completely           |
 
-- `&`: 每次手动选择位置（默认）
-- `@`: 保存到桌面
-- `*`: 保存到图片文件夹
-- 自定义路径：如 `D:/Screenshots`
-- 路径分隔符**必须使用** `/` 或 `\\`
+### 2. 配置自定义 / Configuration Customization
 
-### [sundry] 其他设置 / Other Settings
+#### 修改配置步骤 / Configuration Steps
 
-- `startup`: 是否自启动（0=否，1=是）
-- `gui_config`: 普通截图工具栏配置
-- `long_gui_config`: 长截图工具栏配置
+1. 按 `Ctrl+Win+Alt+O` 打开配置文件 / Press `Ctrl+Win+Alt+O` to open config file
+2. 根据需要修改设置 / Modify settings as needed
+3. 保存并关闭配置文件 / Save and close the config file
+4. 按 `Win+Ctrl+Shift+Esc` 退出程序 / Press `Win+Ctrl+Shift+Esc` to exit
+5. 重新启动程序加载新配置 / Restart program to load new settings
 
-## 注意事项 / Notes
+## 配置详解 / Configuration Details
 
-1. 程序会自动以单例模式运行，防止多开
-2. 配置文件自动保存在 `AppData/Local/SC_Starter` 目录
-3. 程序会自动监控核心文件，防止被误删除
-4. 所有快捷键不区分大小写
-5. 修改配置后必须重启程序才能生效
+配置文件位于：`%LOCALAPPDATA%\SC_Starter\config.toml`
 
----
+### [hotkey] 快捷键配置 / Hotkey Configuration
 
-1. Program will automatically run in singleton mode to prevent multiple instances
-2. Configuration file is automatically saved in `AppData/Local/SC_Starter` directory  
-3. Program will automatically monitor core files to prevent accidental deletion
-4. All hotkeys are case-insensitive
-5. Program restart is required after configuration changes
+#### 格式说明 / Format Description
 
-## 附，完整设置文件
+```toml
+功能名 = "修饰键1+修饰键2+...@目标键"
+function = "Modifier1+Modifier2+...@TargetKey"
+```
+
+#### 支持的修饰键 / Supported Modifiers
+
+- `Win` / `Windows` / `Super`: Windows键
+- `Ctrl` / `Control`: Ctrl键  
+- `Alt`: Alt键
+- `Shift`: Shift键
+
+#### 支持的目标键 / Supported Target Keys
+
+- **字母键** / Letters: `A-Z`
+- **数字键** / Numbers: `0-9`
+- **功能键** / Function Keys: `F1-F24`
+- **特殊键** / Special Keys: `VK_ESCAPE`, `VK_SPACE`, `VK_TAB` 等
+
+#### 配置要求 / Requirements
+
+- **至少两个修饰键** / Minimum 2 modifiers required
+- **避免系统快捷键冲突** / Avoid system hotkey conflicts
+
+### [path] 保存路径配置 / Save Path Configuration
+
+| 设置值 / Value   | 功能 / Function              | 说明 / Description       |
+| ---------------- | ---------------------------- | ------------------------ |
+| `&`              | 手动选择 / Manual Selection  | 每次截图时弹出保存对话框 |
+| `@`              | 桌面 / Desktop               | 自动保存到桌面           |
+| `*`              | 图片文件夹 / Pictures Folder | 自动保存到用户图片文件夹 |
+| `D:/Screenshots` | 自定义路径 / Custom Path     | 保存到指定文件夹         |
+
+#### 路径格式要求 / Path Format Requirements
+
+- 使用正斜杠: `D:/Screenshots`  
+- 使用双反斜杠: `D:\\Screenshots`
+- 不要使用单反斜杠: `D:\Screenshots`
+
+### [sundry] 杂项 / Advanced Settings
+
+- **auto_start**: 开机自启动 (`true`/`false`)
+- **comp_level**: 压缩级别 (0-100)
+- **scale_level**: 缩放级别 (0-100)
+
+### GUI 工具栏配置 / GUI Toolbar Configuration
+
+**可用工具 / Available Tools:**
+
+- `rect`: 矩形工具 / Rectangle tool
+- `ellipse`: 椭圆工具 / Ellipse tool  
+- `arrow`: 箭头工具 / Arrow tool
+- `number`: 序号工具 / Number tool
+- `line`: 直线工具 / Line tool
+- `text`: 文本工具 / Text tool
+- `mosaic`: 马赛克工具 / Mosaic tool
+- `eraser`: 橡皮擦工具 / Eraser tool
+- `undo`/`redo`: 撤销/重做 / Undo/Redo
+- `pin`: 钉图功能 / Pin function
+- `clipboard`: 复制到剪贴板 / Copy to clipboard
+- `save`: 保存功能 / Save function
+- `close`: 关闭功能 / Close function
+- `|`: 分隔符 / Separator
+
+## 完整配置文件示例 / Complete Configuration Example
 
 ```toml
 # 设置文件使用说明 / Configuration File Instructions:
@@ -139,6 +191,16 @@ dir = "&"
 # true->启用, false->禁用
 startup = false
 
+# 图像压缩与缩放比例
+# Image compression and scaling ratio settings
+# 压缩等级：0-10（清晰->模糊），-1代表默认
+# 缩放：1%-100%，（模糊->清晰）
+# Compression level: 0-10 (clear->blur), -1 for default
+# Scale: 1%-100% (blur->clear)
+comp_level = -1
+scale_ratio = 100
+
+[gui]
 # GUI配置，默认全部启用
 # rect：方框
 # ellipse：椭圆
@@ -154,6 +216,7 @@ startup = false
 # save：保存
 # close：关闭
 gui_config = "rect,ellipse,arrow,number,line,text,mosaic,eraser,|,undo,redo,|,pin,clipboard,save,close"
+# 参数只少不多
+# Only fewer parameters are allowed
 long_gui_config = "pin,clipboard,save,close"
-
 ```
