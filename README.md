@@ -62,11 +62,13 @@ A starter for ScreenCapture
 4. 所有快捷键不区分大小写
 5. 修改配置后必须重启程序才能生效
 
-Program will automatically run in singleton mode to prevent multiple instances
-Configuration file is automatically saved in `AppData/Local/SC_Starter` directory  
-Program will automatically monitor core files to prevent accidental deletion
-All hotkeys are case-insensitive
-Program restart is required after configuration changes
+---
+
+1. Program will automatically run in singleton mode to prevent multiple instances
+2. Configuration file is automatically saved in `AppData/Local/SC_Starter` directory  
+3. Program will automatically monitor core files to prevent accidental deletion
+4. All hotkeys are case-insensitive
+5. Program restart is required after configuration changes
 
 ## 附，完整设置文件
 
