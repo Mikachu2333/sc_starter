@@ -4,7 +4,7 @@ use windows_hotkeys::keys::{ModKey, VKey};
 /// EMBEDDED ScreenCapture 哈希值 (SHA1)
 pub const RES_HASH: &str = "9D0655C41D1C05475C458A5091D6DE01034B0C5B";
 /// EMBEDDED ScreenCapture 版本号
-pub const RES_VERSION: &str = "2.3.2";
+pub const RES_VERSION: &str = "2.3.3";
 
 /// 文件存在状态结构体
 /// 用于跟踪主程序所需的关键文件状态
