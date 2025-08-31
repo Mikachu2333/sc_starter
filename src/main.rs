@@ -14,6 +14,7 @@ mod file_ops;
 mod hotkeys;
 mod tray;
 mod types;
+mod msgbox;
 
 use crate::config::*;
 use crate::file_ops::*;
@@ -25,7 +26,6 @@ use single_instance;
 use single_instance::SingleInstance;
 use std::collections::HashMap;
 use std::{
-    os::windows::process::CommandExt,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -52,8 +52,8 @@ fn main() {
     let instance = Box::new(SingleInstance::new(PROCESS_ID).unwrap());
     if !instance.is_single() {
         // 检测到已有实例在运行时，显示提示并退出
-        let _ = std::process::Command::new("mshta")
-            .raw_arg("\"javascript:var sh=new ActiveXObject('WScript.Shell'); sh.Popup('Avoid Multiple.',0,'Error',16);close()\"").spawn();
+        let _ = msgbox::error_msgbox(
+            "Avoid Multiple.", "");
         panic!("Multiple!")
     };
 

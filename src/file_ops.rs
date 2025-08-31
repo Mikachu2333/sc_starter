@@ -6,7 +6,10 @@
 //! - 执行外部程序
 //! - 监控文件状态并自动恢复
 
-use crate::types::{FileExist, PathInfos, RES_HASH};
+use crate::{
+    msgbox,
+    types::{FileExist, PathInfos, RES_HASH},
+};
 use rust_embed::*;
 use std::{
     collections::HashMap,
@@ -22,7 +25,6 @@ use std::{
     time::Duration,
 };
 
-const T_SEC_1_10: Duration = std::time::Duration::from_millis(100);
 const T_SEC_3: Duration = std::time::Duration::from_secs(3);
 const T_SEC_5: Duration = std::time::Duration::from_secs(5);
 
@@ -196,28 +198,23 @@ fn execute_string_mode(path: &Path, mode: &str, gui: HashMap<String, String>) {
         }
         "exit" => {
             println!("Preparing to exit...");
-            // 使用异步方式显示消息，避免阻塞
-            let _ = std::process::Command::new("mshta")
-                .raw_arg("\"javascript:var sh=new ActiveXObject('WScript.Shell'); sh.Popup('Exit',1,'Info',64);close()\"")
-                .spawn();
-
-            // 给一个短暂的延时让消息显示出来
-            std::thread::sleep(T_SEC_1_10);
+            let _ = msgbox::info_msgbox("Exit", "");
             std::process::exit(0)
         }
         "conf" => {
             match Command::new("notepad.exe").arg(path).spawn() {
                 Ok(_) => (),
                 Err(_) => {
-                    let _ = std::process::Command::new("mshta")
-            .raw_arg("\"javascript:var sh=new ActiveXObject('WScript.Shell'); sh.Popup('Error to open the config file with notepad.',0,'Error',16);close()\"").spawn();
+                    let _ = msgbox::error_msgbox("Error to open the config file with notepad.", "");
                 }
             };
         }
         "restart" => {
             std::thread::sleep(T_SEC_3);
-            let _ = std::process::Command::new("mshta")
-            .raw_arg("\"javascript:var sh=new ActiveXObject('WScript.Shell'); sh.Popup('Please restart the program to apply your custom settings.',3,'Info',64);close()\"").spawn();
+            let _ = msgbox::info_msgbox(
+                "Please restart the program to apply your custom settings.",
+                "Restart",
+            );
             std::process::exit(0);
         }
         parm => {

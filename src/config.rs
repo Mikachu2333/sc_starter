@@ -6,13 +6,8 @@
 //! - 验证配置有效性
 //! - 转换配置格式
 
-use crate::types::*;
-use std::{
-    collections::HashMap,
-    fs,
-    os::windows::process::CommandExt,
-    path::PathBuf,
-};
+use crate::{msgbox, types::*};
+use std::{collections::HashMap, fs, path::PathBuf};
 use toml::Value;
 use windows_hotkeys::keys::{ModKey, VKey};
 
@@ -55,7 +50,10 @@ fn resolve_path(path: &str) -> PathBuf {
             if temp.exists() && temp.is_dir() {
                 temp
             } else {
-                let _ = std::process::Command::new("mshta").raw_arg("\"javascript:var sh=new ActiveXObject('WScript.Shell'); sh.Popup('Dir you give is not a valid path, please check it.',3,'Warning',32);close()\"").spawn();
+                let _ = msgbox::warn_msgbox(
+                    "Dir you give is not a valid path, so we use empty path.",
+                    "",
+                );
                 PathBuf::new()
             }
         }
@@ -228,10 +226,7 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
     // 在配置处理后通知用户错误
     if !errors.is_empty() {
         let error_message = format!("配置文件中存在以下问题:\n{}", errors.join("\n"));
-        let _ = std::process::Command::new("mshta")
-            .raw_arg(&format!("\"javascript:var sh=new ActiveXObject('WScript.Shell'); sh.Popup('{}',10,'Configuration Errors',48);close()\"", 
-                error_message.replace("\"", "'").replace("\n", "\\n")))
-            .spawn();
+        let _ = msgbox::error_msgbox(error_message, "Configuration Error");
     }
 
     // 返回最终配置集合
