@@ -205,7 +205,7 @@ fn execute_string_mode(path: &Path, mode: &str, gui: HashMap<String, String>) {
             match Command::new("notepad.exe").arg(path).spawn() {
                 Ok(_) => (),
                 Err(_) => {
-                    let _ = msgbox::error_msgbox("Error to open the config file with notepad.", "");
+                    msgbox::error_msgbox("Error to open the config file with notepad.", "");
                 }
             };
         }

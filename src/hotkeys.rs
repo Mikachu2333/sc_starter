@@ -5,8 +5,8 @@
 //! - 处理快捷键事件
 //! - 管理快捷键线程
 
-use crate::file_ops::operate_exe;
 use crate::types::*;
+use crate::{file_ops::operate_exe, msgbox::error_msgbox};
 use std::{
     collections::HashMap,
     sync::mpsc,
@@ -40,7 +40,8 @@ pub fn set_hotkeys(
     let comp = settings_collected.sundry.comp_level.to_string();
     let scale = settings_collected.sundry.scale_level.to_string();
     let exe_path = paths.exe_path.clone();
-    let final_path = settings_collected.path.clone();
+    let save_path = settings_collected.path.save_path.clone();
+    let launch = settings_collected.path.launch_app.clone();
     let conf_path = paths.conf_path.clone();
     let gui = settings_collected.gui.clone();
 
@@ -51,7 +52,7 @@ pub fn set_hotkeys(
         let comp_clone = comp.clone();
         let scale_clone = scale.clone();
         let exe_path_clone = exe_path.clone();
-        let final_path_clone = final_path.clone();
+        let save_path_clone = save_path.clone();
         let gui_clone = gui.clone();
 
         // 注册截屏快捷键
@@ -61,21 +62,37 @@ pub fn set_hotkeys(
             move || {
                 let args = [
                     format!("--comp:{},{}", comp_clone, scale_clone),
-                    save_path_get(&final_path_clone),
+                    save_path_get(&save_path_clone),
                 ]
                 .to_vec();
                 operate_exe(&exe_path_clone, args, gui_clone.clone());
             },
         );
         if hotkey_sc.is_err() {
-            panic!("Failed reg Hotkey sc.");
+            let temp = "Failed reg Hotkey sc.";
+            error_msgbox(&temp, "Register Hotkey Error");
+            panic!("{}", &temp);
+        };
+
+        // 注册Launch快捷键
+        let hotkey_launch = hkm.register(
+            key_groups.get("launch_app").unwrap().vkey,
+            &key_groups.get("launch_app").unwrap().mod_keys,
+            move || {
+                let _ = std::process::Command::new(&launch.path).args(&launch.args).spawn();
+            },
+        );
+        if hotkey_launch.is_err() {
+            let temp = "Failed reg Hotkey launch.";
+            error_msgbox(&temp, "Register Hotkey Error");
+            panic!("{}", &temp);
         };
 
         let comp_clone = comp.clone();
         let scale_clone = scale.clone();
         let exe_path_clone = exe_path.clone();
         let gui_clone = gui.clone();
-        let final_path_clone = final_path.clone();
+        let save_path_clone = save_path.clone();
 
         // 注册截长屏快捷键
         let hotkey_scl = hkm.register(
@@ -85,14 +102,16 @@ pub fn set_hotkeys(
                 let args = [
                     "--cap:long".to_string(),
                     format!("--comp:{},{}", comp_clone, scale_clone),
-                    save_path_get(&final_path_clone),
+                    save_path_get(&save_path_clone),
                 ]
                 .to_vec();
                 operate_exe(&exe_path_clone, args, gui_clone.clone());
             },
         );
         if hotkey_scl.is_err() {
-            panic!("Failed reg Hotkey scl.");
+            let temp = "Failed reg Hotkey scl.";
+            error_msgbox(&temp, "Register Hotkey Error");
+            panic!("{}", &temp);
         };
 
         let exe_path_clone = exe_path.clone();
@@ -107,7 +126,9 @@ pub fn set_hotkeys(
             },
         );
         if hotkey_pin.is_err() {
-            panic!("Failed reg Hotkey pin.");
+            let temp = "Failed reg Hotkey pin.";
+            error_msgbox(&temp, "Register Hotkey Error");
+            panic!("{}", &temp);
         };
 
         // 注册设置快捷键
@@ -116,10 +137,11 @@ pub fn set_hotkeys(
             &key_groups.get("open_conf").unwrap().mod_keys,
             move || operate_exe(&conf_path, "conf", HashMap::new()),
         );
-        match hotkey_conf {
-            Ok(_) => (),
-            Err(_) => panic!("Failed reg Hotkey conf."),
-        };
+        if hotkey_conf.is_err() {
+            let temp = "Failed reg Hotkey conf.";
+            error_msgbox(&temp, "Register Hotkey Error");
+            panic!("{}", &temp);
+        }
 
         // 注册退出快捷键
         let hotkey_exit = hkm.register(
@@ -127,10 +149,11 @@ pub fn set_hotkeys(
             &key_groups.get("exit").unwrap().mod_keys,
             move || std::process::exit(0),
         );
-        match hotkey_exit {
-            Ok(_) => (),
-            Err(_) => panic!("Failed reg Hotkey exit."),
-        };
+        if hotkey_exit.is_err() {
+            let temp = "Failed reg Hotkey exit.";
+            error_msgbox(&temp, "Register Hotkey Error");
+            panic!("{}", &temp);
+        }
 
         // 添加消息循环
         while exit_rx.try_recv().is_err() {

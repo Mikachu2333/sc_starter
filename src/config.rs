@@ -9,56 +9,6 @@
 use crate::{msgbox, types::*};
 use std::{collections::HashMap, fs, path::PathBuf};
 use toml::Value;
-use windows_hotkeys::keys::{ModKey, VKey};
-
-/// 默认设置，当配置文件不存在或配置无效时使用
-const DEFAULT_AUTOSTART: bool = false;
-const DEFAULT_COMP_SCALE: [i32; 2] = [-1, 100]; // 默认压缩级别和缩放级别
-
-/// 解析路径字符串为PathBuf
-///
-/// ### 特殊路径符号
-/// - `&`: 返回空路径（手动选择）
-/// - `@`: 返回桌面路径
-/// - `*`: 返回图片文件夹路径
-///
-/// ### 参数
-/// - `path`: 待解析的路径字符串
-///
-/// ### 返回值
-/// - `PathBuf`: 解析后的路径
-///
-/// ### 说明
-/// - 自定义路径必须存在且为目录
-/// - 无效路径时显示警告弹窗并返回空路径
-fn resolve_path(path: &str) -> PathBuf {
-    match path {
-        "&" => PathBuf::new(),
-        "@" => directories::UserDirs::new()
-            .unwrap()
-            .desktop_dir()
-            .unwrap()
-            .to_path_buf(),
-        "*" => directories::UserDirs::new()
-            .unwrap()
-            .picture_dir()
-            .unwrap()
-            .to_path_buf(),
-        x => {
-            // 验证路径是否存在
-            let temp = PathBuf::from(x);
-            if temp.exists() && temp.is_dir() {
-                temp
-            } else {
-                let _ = msgbox::warn_msgbox(
-                    "Dir you give is not a valid path, so we use empty path.",
-                    "",
-                );
-                PathBuf::new()
-            }
-        }
-    }
-}
 
 /// 读取并解析配置文件
 ///
@@ -74,61 +24,7 @@ fn resolve_path(path: &str) -> PathBuf {
 /// * 解析保存路径设置
 /// * 当配置无效时使用默认值
 pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
-    // 创建一个默认的快捷键配置 HashMap
-    let mut default_settings: KeyVkGroups = HashMap::new();
-
-    // 添加截屏快捷键
-    default_settings.insert(
-        "screen_capture",
-        HotkeyValue {
-            mod_keys: vec![ModKey::Win, ModKey::Alt, ModKey::Ctrl],
-            vkey: VKey::P,
-        },
-    );
-
-    // 添加截长屏快捷键
-    default_settings.insert(
-        "screen_capture_long",
-        HotkeyValue {
-            mod_keys: vec![ModKey::Win, ModKey::Alt, ModKey::Ctrl],
-            vkey: VKey::L,
-        },
-    );
-
-    // 添加钉图快捷键
-    default_settings.insert(
-        "pin_to_screen",
-        HotkeyValue {
-            mod_keys: vec![ModKey::Win, ModKey::Alt, ModKey::Ctrl],
-            vkey: VKey::T,
-        },
-    );
-
-    // 添加退出程序快捷键
-    default_settings.insert(
-        "exit",
-        HotkeyValue {
-            mod_keys: vec![ModKey::Win, ModKey::Ctrl, ModKey::Shift],
-            vkey: VKey::Escape,
-        },
-    );
-
-    // 添加打开设置快捷键
-    default_settings.insert(
-        "open_conf",
-        HotkeyValue {
-            mod_keys: vec![ModKey::Win, ModKey::Alt, ModKey::Ctrl],
-            vkey: VKey::O,
-        },
-    );
-
-    let mut default_gui: HashMap<String, String> = HashMap::new();
-    default_gui.insert(
-        "normal".to_owned(),
-        "rect,ellipse,arrow,number,line,text,mosaic,eraser,|,undo,redo,|,pin,clipboard,save,close"
-            .to_owned(),
-    );
-    default_gui.insert("long".to_owned(), "pin,clipboard,save,close".to_owned());
+    let default_settings = SettingsCollection::default();
 
     // 尝试读取TOML配置文件
     let config_content = match fs::read_to_string(conf_path) {
@@ -136,12 +32,7 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
         Err(e) => {
             eprintln!("Failed to read config file: {}", e);
             // 返回默认配置
-            return SettingsCollection {
-                keys_collection: default_settings.clone(),
-                path: PathBuf::new(),
-                sundry: Sundry::default(),
-                gui: default_gui,
-            };
+            return default_settings;
         }
     };
 
@@ -151,34 +42,37 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
         Err(e) => {
             eprintln!("Failed to parse config file: {}", e);
             // 返回默认配置
-            return SettingsCollection {
-                keys_collection: default_settings.clone(),
-                path: PathBuf::new(),
-                sundry: Sundry::default(),
-                gui: default_gui,
-            };
+            return default_settings;
         }
     };
+
+    // 返回最终配置集合
+    SettingsCollection {
+        keys_collection: get_kvs_from_config(default_settings.keys_collection, &config),
+        path: get_path_from_config(default_settings.path, &config),
+        sundry: get_sundry_settings(default_settings.sundry, &config),
+        gui: get_gui_config(default_settings.gui, &config),
+    }
+}
+
+fn get_kvs_from_config(
+    default: HashMap<&'static str, HotkeyValue>,
+    config: &Value,
+) -> HashMap<&'static str, HotkeyValue> {
+    // 将配置字符串转换为KeyStringGroups结构
+    let mut user_settings: KeyVkGroups = HashMap::new();
+    let mut errors: Vec<String> = Vec::new();
 
     // 提取快捷键配置
     let hotkey_table = match config.get("hotkey").and_then(|v| v.as_table()) {
         Some(table) => table,
         None => {
             eprintln!("Hotkey section missing in config file");
-            return SettingsCollection {
-                keys_collection: default_settings.clone(),
-                path: PathBuf::new(),
-                sundry: Sundry::default(),
-                gui: default_gui,
-            };
+            return default;
         }
     };
 
-    // 将配置字符串转换为KeyStringGroups结构
-    let mut user_settings: KeyVkGroups = HashMap::new();
-    let mut errors: Vec<String> = Vec::new();
-
-    for (default_k, default_v) in default_settings {
+    for (default_k, default_v) in default {
         if let Some(custom_hotkey) = hotkey_table.get(default_k).and_then(|v| v.as_str()) {
             // 提取修饰键和主键
             let parts: Vec<&str> = custom_hotkey.split('@').collect();
@@ -226,16 +120,9 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
     // 在配置处理后通知用户错误
     if !errors.is_empty() {
         let error_message = format!("配置文件中存在以下问题:\n{}", errors.join("\n"));
-        let _ = msgbox::error_msgbox(error_message, "Configuration Error");
+        msgbox::error_msgbox(error_message, "Configuration Error");
     }
-
-    // 返回最终配置集合
-    SettingsCollection {
-        keys_collection: user_settings,
-        path: get_path_from_config(&config),
-        sundry: get_sundry_settings(&config),
-        gui: get_gui_config(default_gui, &config),
-    }
+    user_settings
 }
 
 /// 从配置中提取路径设置
@@ -251,30 +138,46 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
 /// - 对路径字符串进行规范化处理
 /// - 解析特殊路径符号
 /// - 如果配置缺失则使用默认值
-fn get_path_from_config(config: &Value) -> PathBuf {
+fn get_path_from_config(default: PathConfig, config: &Value) -> PathConfig {
     let path_section = config.get("path").and_then(|v| v.as_table());
-    let unchecked_path = match path_section {
+
+    let unchecked = match path_section {
         Some(section) => {
-            if let Some(dir) = section.get("dir").and_then(|v| v.as_str()) {
-                // 规范化路径字符串
-                dir.replace("\\", "/")
-                    .replace("//", "/")
-                    .trim()
-                    .trim_matches(['\\', '/', '"', '\''])
-                    .to_string()
+            let str_save_path = if let Some(dir) = section.get("dir").and_then(|v| v.as_str()) {
+                handle_str_path(dir)
             } else {
-                // 如果没有dir配置，使用默认值
-                "&".to_owned()
-            }
+                default.save_path.to_str().unwrap().to_string()
+            };
+            let str_launch_path =
+                if let Some(launch) = section.get("launch_app_path").and_then(|v| v.as_str()) {
+                    handle_str_path(launch)
+                } else {
+                    default.launch_app.path.to_str().unwrap().to_string()
+                };
+            let str_launch_args  = if let Some(launch) = section.get("launch_app_args").and_then(|v| v.as_str()) {
+                    launch.split("\t").map(String::from).collect()
+                } else {
+                    default.launch_app.args
+                };
+
+            (str_save_path, str_launch_path,str_launch_args)
         }
         None => {
-            // 如果没有path段，使用默认值
-            "&".to_owned()
+            (
+                default.save_path.to_str().unwrap().to_string(),
+                default.launch_app.path.to_str().unwrap().to_string(),
+                default.launch_app.args
+            )
         }
     };
 
-    // 解析保存路径
-    resolve_path(&unchecked_path)
+    PathConfig {
+        save_path: resolve_path(&unchecked.0, true),
+        launch_app: LaunchAppConfig {
+            path: resolve_path(&unchecked.1, false),
+            args: unchecked.2,
+        },
+    }
 }
 
 /// 获取杂项设置
@@ -289,14 +192,14 @@ fn get_path_from_config(config: &Value) -> PathBuf {
 /// - 从配置文件中读取自启动设置
 /// - 从配置文件中读取图像压缩和缩放设置
 /// - 验证设置值的有效性，无效时使用默认值
-fn get_sundry_settings(config: &Value) -> Sundry {
+fn get_sundry_settings(default: Sundry, config: &Value) -> Sundry {
     let sundry_section = config.get("sundry").and_then(|v| v.as_table());
 
     // 获取并处理自启动设置
     let startup_bool = sundry_section
         .and_then(|t| t.get("startup"))
         .and_then(|v| v.as_bool())
-        .unwrap_or(DEFAULT_AUTOSTART);
+        .unwrap_or(default.auto_start);
 
     // 获取并处理保存质量相关设置
     let comp = sundry_section
@@ -306,10 +209,10 @@ fn get_sundry_settings(config: &Value) -> Sundry {
             if num >= -1 && num <= 10 {
                 Some(num as i32)
             } else {
-                Some(DEFAULT_COMP_SCALE[0])
+                Some(default.comp_level)
             }
         })
-        .unwrap_or(DEFAULT_COMP_SCALE[0]);
+        .unwrap_or(default.comp_level);
     let scale = sundry_section
         .and_then(|t| t.get("scale_ratio"))
         .and_then(|v| v.as_integer())
@@ -317,10 +220,10 @@ fn get_sundry_settings(config: &Value) -> Sundry {
             if num >= 1 && num <= 100 {
                 Some(num as i32)
             } else {
-                Some(DEFAULT_COMP_SCALE[1])
+                Some(default.scale_level)
             }
         })
-        .unwrap_or(DEFAULT_COMP_SCALE[1]);
+        .unwrap_or(default.scale_level);
     Sundry {
         auto_start: startup_bool,
         comp_level: comp,

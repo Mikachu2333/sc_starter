@@ -45,6 +45,11 @@ exit = "Win+Ctrl+Shift@VK_ESCAPE"
 # 打开配置文件 / Open configuration file
 open_conf = "Ctrl+Win+Alt@O"
 
+# 调用其它软件 / Launch other application
+# 该软件将自动置顶 / The application will be set to topmost
+# 软件路径在下方的 path 配置类别中指定
+launch_app = "Ctrl+Win+Alt@A"
+
 [path]
 # 设置图片的自动保存位置，可选以下几种：
 # Configure automatic save location for images, options:
@@ -57,6 +62,15 @@ open_conf = "Ctrl+Win+Alt@O"
 # 路径必须使用斜杠『/』或双反斜杠『\\』
 # Path must use slashes "/" or double backslashes "\\"
 dir = "&"
+
+# 需要启动的程序路径，要求同上
+# Process path you want to launch
+launch_app_path = "C:/Windows/System32/notepad.exe"
+# 启动参数，可以置空
+# 使用 Tab（打不出来可以复制这个<	>）间隔每个参数
+# Process Args, blank is allowed
+# Use Tab to separate each argument (it may not be typed, you can copy this <	>)
+launch_app_args = ""
 
 [sundry]
 # 设置是否开机自启

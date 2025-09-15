@@ -38,12 +38,40 @@ pub struct Sundry {
     /// 图像缩放
     pub scale_level: i32,
 }
-impl Default for Sundry {
-    fn default() -> Self {
+impl Sundry {
+    pub fn default() -> Self {
         Sundry {
             auto_start: false,
             comp_level: -1,
             scale_level: 100,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct LaunchAppConfig {
+    pub path: PathBuf,
+    pub args: Vec<String>,
+}
+impl LaunchAppConfig {
+    pub fn default() -> Self {
+        LaunchAppConfig {
+            path: PathBuf::from("C:/Windows/System32/notepad.exe"),
+            args: Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct PathConfig {
+    pub save_path: PathBuf,
+    pub launch_app: LaunchAppConfig,
+}
+impl PathConfig {
+    pub fn default() -> Self {
+        PathConfig {
+            save_path: PathBuf::new(),
+            launch_app: LaunchAppConfig::default(),
         }
     }
 }
@@ -59,13 +87,87 @@ pub struct SettingsCollection {
     /// 4. 退出(exit)
     /// 5. 设置(open_conf)
     pub keys_collection: KeyVkGroups,
-    /// 截图保存路径
-    pub path: PathBuf,
+    /// 路径设置，包含保存路径以及启动app的路径
+    pub path: PathConfig,
     /// 杂项设置
     /// 包含自动启动、图像压缩和缩放设置
     pub sundry: Sundry,
     /// GUI配置参数
     pub gui: HashMap<String, String>,
+}
+impl SettingsCollection {
+    pub fn default() -> Self {
+        // 创建一个默认的快捷键配置 HashMap
+        let mut default_kvs: KeyVkGroups = HashMap::new();
+
+        // 添加截屏快捷键
+        default_kvs.insert(
+            "screen_capture",
+            HotkeyValue {
+                mod_keys: vec![ModKey::Win, ModKey::Alt, ModKey::Ctrl],
+                vkey: VKey::P,
+            },
+        );
+
+        // 添加截长屏快捷键
+        default_kvs.insert(
+            "screen_capture_long",
+            HotkeyValue {
+                mod_keys: vec![ModKey::Win, ModKey::Alt, ModKey::Ctrl],
+                vkey: VKey::L,
+            },
+        );
+
+        // 添加钉图快捷键
+        default_kvs.insert(
+            "pin_to_screen",
+            HotkeyValue {
+                mod_keys: vec![ModKey::Win, ModKey::Alt, ModKey::Ctrl],
+                vkey: VKey::T,
+            },
+        );
+
+        // 添加退出程序快捷键
+        default_kvs.insert(
+            "exit",
+            HotkeyValue {
+                mod_keys: vec![ModKey::Win, ModKey::Ctrl, ModKey::Shift],
+                vkey: VKey::Escape,
+            },
+        );
+
+        // 添加打开设置快捷键
+        default_kvs.insert(
+            "open_conf",
+            HotkeyValue {
+                mod_keys: vec![ModKey::Win, ModKey::Alt, ModKey::Ctrl],
+                vkey: VKey::O,
+            },
+        );
+
+        // 添加调用程序快捷键
+        default_kvs.insert(
+            "launch_app",
+            HotkeyValue {
+                mod_keys: vec![ModKey::Win, ModKey::Alt, ModKey::Ctrl],
+                vkey: VKey::A,
+            },
+        );
+
+        let mut default_gui: HashMap<String, String> = HashMap::new();
+        default_gui.insert(
+        "normal".to_owned(),
+        "rect,ellipse,arrow,number,line,text,mosaic,eraser,|,undo,redo,|,pin,clipboard,save,close"
+            .to_owned(),
+    );
+        default_gui.insert("long".to_owned(), "pin,clipboard,save,close".to_owned());
+        SettingsCollection {
+            keys_collection: default_kvs,
+            path: PathConfig::default(),
+            sundry: Sundry::default(),
+            gui: default_gui,
+        }
+    }
 }
 impl std::fmt::Display for SettingsCollection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -88,10 +190,12 @@ Hotkeys Settings:
     Config:           {}
 
 Sundry:
-    Save Path:    {}
-    Auto Startup: {}
-    Comp Level:   {}
-    Scale Level:  {}
+    Save Path:\t\t{}
+    Launch App Path:\t{}
+    Launch App Args:\t{}
+    Auto Startup:\t{}
+    Comp Level:\t\t{}
+    Scale Level:\t\t{}
     GUI:
         Normal: {}
         Long:   {}
@@ -102,7 +206,9 @@ Sundry:
             get_key_str("pin_to_screen"),
             get_key_str("exit"),
             get_key_str("open_conf"),
-            self.path.display(),
+            self.path.save_path.display(),
+            self.path.launch_app.path.display(),
+            self.path.launch_app.args.join(" "),
             self.sundry.auto_start,
             self.sundry.comp_level,
             self.sundry.scale_level,
@@ -208,4 +314,61 @@ pub fn match_keys(groups: &KeyStringGroups) -> (bool, Vec<ModKey>, VKey) {
     };
 
     (status, results_mod, result_vk)
+}
+
+pub fn handle_str_path(str_path: impl ToString) -> String {
+    str_path
+        .to_string()
+        .replace("\\", "/")
+        .replace("//", "/")
+        .trim()
+        .trim_matches(['\\', '/', '"', '\''])
+        .to_string()
+}
+
+/// 解析路径字符串为PathBuf
+///
+/// ### 特殊路径符号
+/// - `&`: 返回空路径（手动选择）
+/// - `@`: 返回桌面路径
+/// - `*`: 返回图片文件夹路径
+///
+/// ### 参数
+/// - `path`: 待解析的路径字符串
+///
+/// ### 返回值
+/// - `PathBuf`: 解析后的路径
+///
+/// ### 说明
+/// - 自定义路径必须存在且为目录
+/// - 无效路径时显示警告弹窗并返回空路径
+pub fn resolve_path(path: impl ToString, should_dir: bool) -> PathBuf {
+    let path = path.to_string();
+    match path.as_ref() {
+        "&" => PathBuf::new(),
+        "@" => directories::UserDirs::new()
+            .unwrap()
+            .desktop_dir()
+            .unwrap()
+            .to_path_buf(),
+        "*" => directories::UserDirs::new()
+            .unwrap()
+            .picture_dir()
+            .unwrap()
+            .to_path_buf(),
+        x => {
+            // 验证路径是否存在
+            let temp = PathBuf::from(x);
+
+            if temp.exists() && (temp.is_dir() == should_dir) {
+                temp.canonicalize().unwrap()
+            } else {
+                let _ = crate::msgbox::warn_msgbox(
+                    "Dir you give is not a valid path, so we use empty path.",
+                    "",
+                );
+                PathBuf::new()
+            }
+        }
+    }
 }

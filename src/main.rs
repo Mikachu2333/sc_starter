@@ -12,9 +12,9 @@
 mod config;
 mod file_ops;
 mod hotkeys;
+mod msgbox;
 mod tray;
 mod types;
-mod msgbox;
 
 use crate::config::*;
 use crate::file_ops::*;
@@ -52,8 +52,7 @@ fn main() {
     let instance = Box::new(SingleInstance::new(PROCESS_ID).unwrap());
     if !instance.is_single() {
         // 检测到已有实例在运行时，显示提示并退出
-        let _ = msgbox::error_msgbox(
-            "Avoid Multiple.", "");
+        msgbox::error_msgbox("Avoid Multiple.", "");
         panic!("Multiple!")
     };
 
@@ -106,7 +105,7 @@ fn main() {
     // 托盘事件处理线程
     // 处理用户与托盘图标的交互，如点击和双击事件
     let exe_path = path_infos.exe_path.clone();
-    let save_path = settings.path.clone();
+    let save_path = settings.path.save_path.clone();
     let gui = settings.gui.clone();
 
     let event_handler = std::thread::spawn(move || {
@@ -128,7 +127,8 @@ fn main() {
                                 settings.sundry.comp_level, settings.sundry.scale_level
                             ),
                             save_path_get(&save_path),
-                        ].to_vec();
+                        ]
+                        .to_vec();
                         operate_exe(&exe_path, args, gui_clone.clone());
                     }
                 }
@@ -152,7 +152,8 @@ fn main() {
                                     settings.sundry.comp_level, settings.sundry.scale_level
                                 ),
                                 save_path_get(&save_path),
-                            ].to_vec();
+                            ]
+                            .to_vec();
                             operate_exe(&exe_path, args, gui_clone.clone());
                         }
                     }
