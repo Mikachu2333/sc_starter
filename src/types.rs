@@ -211,10 +211,11 @@ Sundry:
             path_display(&self.path.save_path, "Manual Select"),
             path_display(&self.path.launch_app.path, "None"),
             {
-                if self.path.launch_app.args.is_empty() {
+                let temp = self.path.launch_app.args.join(" ");
+                if temp.trim().is_empty() {
                     "None".to_string()
                 } else {
-                    format!("<{}>", self.path.launch_app.args.join(" "))
+                    format!("<{}>", temp)
                 }
             },
             self.sundry.auto_start,

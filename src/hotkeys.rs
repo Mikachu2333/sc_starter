@@ -79,7 +79,13 @@ pub fn set_hotkeys(
             key_groups.get("launch_app").unwrap().vkey,
             &key_groups.get("launch_app").unwrap().mod_keys,
             move || {
-                let _ = std::process::Command::new(&launch.path).args(&launch.args).spawn();
+                if launch.args.join(" ").trim().is_empty() {
+                    let _ = std::process::Command::new(&launch.path).spawn();
+                } else {
+                    let _ = std::process::Command::new(&launch.path)
+                        .args(&launch.args)
+                        .spawn();
+                }
             },
         );
         if hotkey_launch.is_err() {
