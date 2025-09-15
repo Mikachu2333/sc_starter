@@ -52,9 +52,6 @@ pub fn set_hotkeys(
         let key_groups = settings_collected.keys_collection;
         let mut hkm = HotkeyManager::new();
 
-        // 初始化启动应用程序的进程ID管理
-        let launch_pid: Arc<Mutex<u32>> = Arc::new(Mutex::new(0));
-
         let comp_clone = comp.clone();
         let scale_clone = scale.clone();
         let exe_path_clone = exe_path.clone();
@@ -80,13 +77,14 @@ pub fn set_hotkeys(
             panic!("{}", &temp);
         };
 
-        // 注册Launch快捷键
-        let launch_pid_clone = Arc::clone(&launch_pid);
+        // 初始化启动应用程序的进程ID管理
+        let launch_pid: Arc<Mutex<u32>> = Arc::new(Mutex::new(0));
+        // 注册Launch快捷键\
         let hotkey_launch = hkm.register(
             key_groups.get("launch_app").unwrap().vkey,
             &key_groups.get("launch_app").unwrap().mod_keys,
             move || {
-                let current_pid = *launch_pid_clone.lock().unwrap();
+                let current_pid = *launch_pid.lock().unwrap();
 
                 // 获取启动程序的文件名用于进程检测
                 let process_name = launch
@@ -105,7 +103,7 @@ pub fn set_hotkeys(
                             return;
                         } else {
                             // 进程已退出，重置PID
-                            *launch_pid_clone.lock().unwrap() = 0;
+                            *launch_pid.lock().unwrap() = 0;
                         }
                     }
                 }
@@ -122,7 +120,7 @@ pub fn set_hotkeys(
                 // 如果程序启动成功，记录PID并等待窗口创建后置顶
                 if let Ok(child) = child {
                     let pid = child.id();
-                    *launch_pid_clone.lock().unwrap() = pid;
+                    *launch_pid.lock().unwrap() = pid;
 
                     // 等待程序启动并创建窗口后置顶
                     std::thread::sleep(T_SEC_1_2);
