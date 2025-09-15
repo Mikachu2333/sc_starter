@@ -90,22 +90,22 @@ fn raw_msgbox(
 /// Displays an information message box with an OK button.
 /// If title is empty, it will be set to "Information"
 #[allow(dead_code)]
-pub fn info_msgbox(msg: impl ToString, title: impl ToString) -> i32 {
-    raw_msgbox(msg, title, MsgBoxType::Info, MsgBtnType::Ok)
+pub fn info_msgbox(msg: impl ToString, title: impl ToString) {
+    let _ = raw_msgbox(msg, title, MsgBoxType::Info, MsgBtnType::Ok);
 }
 
 /// Displays an error message box with an OK button.
 /// If title is empty, it will be set to "Error"
 #[allow(dead_code)]
-pub fn error_msgbox(msg: impl ToString, title: impl ToString) -> i32 {
-    raw_msgbox(msg, title, MsgBoxType::Error, MsgBtnType::Ok)
+pub fn error_msgbox(msg: impl ToString, title: impl ToString) {
+    let _ = raw_msgbox(msg, title, MsgBoxType::Error, MsgBtnType::Ok);
 }
 
 /// Displays a warning message box with an OK button.
 /// If title is empty, it will be set to "Warning"
 #[allow(dead_code)]
-pub fn warn_msgbox(msg: impl ToString, title: impl ToString) -> i32 {
-    raw_msgbox(msg, title, MsgBoxType::Warn, MsgBtnType::Ok)
+pub fn warn_msgbox(msg: impl ToString, title: impl ToString) {
+    let _ = raw_msgbox(msg, title, MsgBoxType::Warn, MsgBtnType::Ok);
 }
 
 /// Displays a question message box with Yes/No buttons.
