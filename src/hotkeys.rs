@@ -79,53 +79,80 @@ pub fn set_hotkeys(
 
         // 初始化启动应用程序的进程ID管理
         let launch_pid: Arc<Mutex<u32>> = Arc::new(Mutex::new(0));
-        // 注册Launch快捷键\
+        // 注册Launch快捷键
         let hotkey_launch = hkm.register(
             key_groups.get("launch_app").unwrap().vkey,
             &key_groups.get("launch_app").unwrap().mod_keys,
             move || {
-                let current_pid = *launch_pid.lock().unwrap();
-
-                // 获取启动程序的文件名用于进程检测
-                let process_name = launch
+                // 检查文件扩展名，判断是否为可执行文件
+                let ext = launch
                     .path
-                    .file_name()
-                    .and_then(|name| name.to_str())
+                    .extension()
+                    .and_then(|ext| ext.to_str())
                     .unwrap_or("")
-                    .to_string();
+                    .to_lowercase();
 
-                // 检查进程是否仍在运行
-                if current_pid != 0 {
-                    unsafe {
-                        if is_process_running(&process_name) {
-                            // 进程存在，直接置顶窗口
-                            set_window_topmost_by_pid(current_pid);
-                            return;
-                        } else {
-                            // 进程已退出，重置PID
-                            *launch_pid.lock().unwrap() = 0;
+                let is_executable = ["exe", "bat", "cmd", "com", "msi"].contains(&ext.as_str());
+
+                if is_executable {
+                    // 对于可执行文件，使用进程管理逻辑
+                    let current_pid = *launch_pid.lock().unwrap();
+
+                    // 获取启动程序的文件名用于进程检测
+                    let process_name = launch
+                        .path
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                        .unwrap_or("")
+                        .to_string();
+
+                    // 检查进程是否仍在运行
+                    if current_pid != 0 {
+                        unsafe {
+                            if is_process_running(&process_name) {
+                                // 进程存在，直接置顶窗口
+                                set_window_topmost_by_pid(current_pid);
+                                return;
+                            } else {
+                                // 进程已退出，重置PID
+                                *launch_pid.lock().unwrap() = 0;
+                            }
                         }
                     }
-                }
 
-                // 启动新进程
-                let child = if launch.args.join(" ").trim().is_empty() {
-                    std::process::Command::new(&launch.path).spawn()
+                    // 启动新的可执行文件进程
+                    let child = if launch.args.join(" ").trim().is_empty() {
+                        std::process::Command::new(&launch.path).spawn()
+                    } else {
+                        std::process::Command::new(&launch.path)
+                            .args(&launch.args)
+                            .spawn()
+                    };
+
+                    // 如果程序启动成功，记录PID并等待窗口创建后置顶
+                    if let Ok(child) = child {
+                        let pid = child.id();
+                        *launch_pid.lock().unwrap() = pid;
+
+                        // 等待程序启动并创建窗口后置顶
+                        std::thread::sleep(T_SEC_1_2);
+                        unsafe {
+                            set_window_topmost_by_pid(pid);
+                        }
+                    }
                 } else {
-                    std::process::Command::new(&launch.path)
-                        .args(&launch.args)
-                        .spawn()
-                };
-
-                // 如果程序启动成功，记录PID并等待窗口创建后置顶
-                if let Ok(child) = child {
-                    let pid = child.id();
-                    *launch_pid.lock().unwrap() = pid;
-
-                    // 等待程序启动并创建窗口后置顶
-                    std::thread::sleep(T_SEC_1_2);
-                    unsafe {
-                        set_window_topmost_by_pid(pid);
+                    // 对于非可执行文件，直接通过默认程序或explorer打开
+                    // 不进行进程管理，每次都重新打开
+                    if launch.args.join(" ").trim().is_empty() {
+                        // 使用系统默认程序打开文件
+                        let _ = std::process::Command::new("explorer")
+                            .arg(&launch.path)
+                            .spawn();
+                    } else {
+                        // 如果有参数，尝试直接执行（可能是特定的打开方式）
+                        let _ = std::process::Command::new(&launch.path)
+                            .args(&launch.args)
+                            .spawn();
                     }
                 }
             },
