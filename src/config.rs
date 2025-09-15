@@ -10,19 +10,19 @@ use crate::{msgbox, types::*};
 use std::{collections::HashMap, fs, path::PathBuf};
 use toml::Value;
 
-/// 读取并解析配置文件
+/// 读取并解析TOML配置文件
 ///
 /// ### 参数
-/// * `conf_path` - 配置文件路径
+/// - `conf_path`: 配置文件的路径
 ///
 /// ### 返回值
-/// * `SettingsCollection` - 包含快捷键设置和保存路径的配置集合
+/// - `SettingsCollection`: 解析后的完整配置集合
 ///
 /// ### 功能
-/// * 读取TOML格式的配置文件
-/// * 解析快捷键设置
-/// * 解析保存路径设置
-/// * 当配置无效时使用默认值
+/// - 读取指定路径的TOML配置文件
+/// - 解析配置内容并合并默认设置
+/// - 处理文件读取和解析错误
+/// - 返回包含所有配置项的结构体
 pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
     let default_settings = SettingsCollection::default();
 
@@ -55,6 +55,21 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
     }
 }
 
+/// 从配置中提取快捷键设置
+///
+/// ### 参数
+/// - `default`: 默认快捷键配置映射
+/// - `config`: TOML配置值引用
+///
+/// ### 返回值
+/// - `HashMap<&'static str, HotkeyValue>`: 解析后的快捷键配置映射
+///
+/// ### 功能
+/// - 从配置文件hotkey段读取自定义快捷键
+/// - 解析快捷键格式（修饰键@主键）
+/// - 验证快捷键有效性
+/// - 对无效配置使用默认值并报告错误
+/// - 集中显示所有配置错误
 fn get_kvs_from_config(
     default: HashMap<&'static str, HotkeyValue>,
     config: &Value,
@@ -128,15 +143,16 @@ fn get_kvs_from_config(
 /// 从配置中提取路径设置
 ///
 /// ### 参数
-/// - `config`: TOML配置值
+/// - `default`: 默认路径配置
+/// - `config`: TOML配置值引用
 ///
 /// ### 返回值
-/// - `PathBuf`: 解析后的保存路径
+/// - `PathConfig`: 解析后的路径配置结构
 ///
 /// ### 功能
-/// - 从配置文件path段读取dir设置
-/// - 对路径字符串进行规范化处理
-/// - 解析特殊路径符号
+/// - 从配置文件path段读取dir、launch_app_path和launch_app_args设置
+/// - 处理路径字符串规范化和特殊符号解析
+/// - 解析启动应用程序的参数（使用Tab分隔）
 /// - 如果配置缺失则使用默认值
 fn get_path_from_config(default: PathConfig, config: &Value) -> PathConfig {
     let path_section = config.get("path").and_then(|v| v.as_table());
@@ -179,18 +195,20 @@ fn get_path_from_config(default: PathConfig, config: &Value) -> PathConfig {
     }
 }
 
-/// 获取杂项设置
+/// 从配置中提取杂项设置
 ///
 /// ### 参数
-/// - `config`: TOML配置值
+/// - `default`: 默认杂项配置
+/// - `config`: TOML配置值引用
 ///
 /// ### 返回值
 /// - `Sundry`: 包含自启动、压缩级别和缩放级别的配置结构
 ///
 /// ### 功能
-/// - 从配置文件中读取自启动设置
-/// - 从配置文件中读取图像压缩和缩放设置
-/// - 验证设置值的有效性，无效时使用默认值
+/// - 从配置文件sundry段读取startup、comp_level和scale_ratio设置
+/// - 验证压缩级别范围（-1到10）
+/// - 验证缩放比例范围（1到100）
+/// - 对超出范围的值使用默认配置
 fn get_sundry_settings(default: Sundry, config: &Value) -> Sundry {
     let sundry_section = config.get("sundry").and_then(|v| v.as_table());
 
@@ -230,18 +248,19 @@ fn get_sundry_settings(default: Sundry, config: &Value) -> Sundry {
     }
 }
 
-/// 获取GUI配置
+/// 从配置中提取GUI设置
 ///
 /// ### 参数
-/// - `default`: 默认GUI配置
-/// - `config`: TOML配置值
+/// - `default`: 默认GUI配置映射
+/// - `config`: TOML配置值引用
 ///
 /// ### 返回值
 /// - `HashMap<String, String>`: 包含normal和long模式GUI配置的映射
 ///
 /// ### 功能
-/// - 从配置文件中读取GUI设置
-/// - 为normal和long模式分别设置工具栏配置
+/// - 从配置文件gui段读取gui_config和long_gui_config设置
+/// - 为normal和long模式分别生成工具栏参数格式
+/// - 将配置值包装为命令行参数格式（--tool:"配置值"）
 /// - 如果配置不存在则使用默认值
 fn get_gui_config(default: HashMap<String, String>, config: &Value) -> HashMap<String, String> {
     let mut temp: HashMap<String, String> = HashMap::new();
@@ -270,17 +289,18 @@ fn get_gui_config(default: HashMap<String, String>, config: &Value) -> HashMap<S
     temp
 }
 
-/// 设置或更新启动时运行的快捷方式
+/// 管理系统启动时的快捷方式
 ///
 /// ### 参数
-/// - `renew`: 是否创建新的快捷方式
+/// - `renew`: 是否创建新的快捷方式（true=创建，false=仅删除）
 /// - `startup_dir`: Windows启动目录路径
 /// - `self_path`: 当前可执行文件路径
 ///
 /// ### 功能
-/// - 删除现有的快捷方式（如果存在）
-/// - 根据`renew`参数决定是否创建新的快捷方式
-/// - 自动设置为开机自启动
+/// - 删除现有的启动快捷方式（如果存在）
+/// - 根据renew参数决定是否创建新的快捷方式
+/// - 快捷方式名称基于可执行文件名自动生成
+/// - 用于控制程序开机自启动行为
 pub fn set_startup(renew: bool, startup_dir: &PathBuf, self_path: &PathBuf) {
     // 生成快捷方式的名称，基于当前可执行文件的主名称
     let lnk_name = format!("{}.lnk", self_path.file_stem().unwrap().to_str().unwrap());

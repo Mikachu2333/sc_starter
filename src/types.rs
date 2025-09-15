@@ -1,18 +1,21 @@
 use std::{collections::HashMap, path::PathBuf};
 use windows_hotkeys::keys::{ModKey, VKey};
 
-/// EMBEDDED ScreenCapture 哈希值 (SHA1)
+/// 嵌入式 ScreenCapture 程序的 SHA1 哈希值
+/// 用于验证嵌入的可执行文件完整性
 pub const RES_HASH: &str = "9D0655C41D1C05475C458A5091D6DE01034B0C5B";
-/// EMBEDDED ScreenCapture 版本号
+
+/// 嵌入式 ScreenCapture 程序的版本号
+/// 用于版本检查和更新判断
 pub const RES_VERSION: &str = "2.3.3";
 
 /// 文件存在状态结构体
-/// 用于跟踪主程序所需的关键文件状态
+/// 用于跟踪主程序所需的关键文件状态和版本信息
 #[derive(Clone, Copy, Debug)]
 pub struct FileExist {
-    /// exe文件是否存在
+    /// ScreenCapture 可执行文件是否存在
     pub exe_exist: bool,
-    /// exe文件是否为最新版本
+    /// ScreenCapture 可执行文件是否为最新版本
     pub exe_latest: bool,
     /// 配置文件是否存在
     pub conf_exist: bool,
@@ -28,14 +31,14 @@ impl Default for FileExist {
 }
 
 /// 杂项设置结构体
-/// 存储程序的各种辅助配置
+/// 存储程序的辅助功能配置项
 #[derive(Clone, Debug)]
 pub struct Sundry {
-    /// 是否自动启动程序
+    /// 是否设置程序开机自动启动
     pub auto_start: bool,
-    /// 图像压缩
+    /// 图像压缩质量等级（-1表示无损，0-10表示压缩级别）
     pub comp_level: i32,
-    /// 图像缩放
+    /// 图像缩放比例（1-100，100表示原始大小）
     pub scale_level: i32,
 }
 impl Sundry {
@@ -48,9 +51,13 @@ impl Sundry {
     }
 }
 
+/// 启动应用程序配置结构体
+/// 存储外部应用程序的启动信息
 #[derive(Clone, Debug)]
 pub struct LaunchAppConfig {
+    /// 应用程序可执行文件路径
     pub path: PathBuf,
+    /// 启动应用程序时的命令行参数列表
     pub args: Vec<String>,
 }
 impl LaunchAppConfig {
@@ -62,9 +69,13 @@ impl LaunchAppConfig {
     }
 }
 
+/// 路径配置结构体
+/// 存储截图保存路径和启动应用程序配置
 #[derive(Clone, Debug)]
 pub struct PathConfig {
+    /// 截图文件保存路径
     pub save_path: PathBuf,
+    /// 外部启动应用程序配置
     pub launch_app: LaunchAppConfig,
 }
 impl PathConfig {
@@ -76,23 +87,24 @@ impl PathConfig {
     }
 }
 
-/// 设置集合结构体
-/// 存储程序的所有配置信息
+/// 完整设置集合结构体
+/// 存储程序的所有配置信息，包括热键、路径、杂项和GUI设置
 #[derive(Clone, Debug)]
 pub struct SettingsCollection {
-    /// 热键配置数组
-    /// 1. 截屏(screen_capture)
-    /// 2. 截长屏(screen_capture_long)
-    /// 3. 钉图(pin_to_screen)
-    /// 4. 退出(exit)
-    /// 5. 设置(open_conf)
+    /// 热键配置映射表
+    /// 包含以下功能的快捷键：
+    /// - screen_capture: 截屏
+    /// - screen_capture_long: 长截屏
+    /// - pin_to_screen: 钉图到屏幕
+    /// - exit: 退出程序
+    /// - open_conf: 打开配置
+    /// - launch_app: 启动外部应用
     pub keys_collection: KeyVkGroups,
-    /// 路径设置，包含保存路径以及启动app的路径
+    /// 路径相关配置，包含截图保存路径和启动应用程序配置
     pub path: PathConfig,
-    /// 杂项设置
-    /// 包含自动启动、图像压缩和缩放设置
+    /// 杂项设置，包含自动启动、图像压缩和缩放配置
     pub sundry: Sundry,
-    /// GUI配置参数
+    /// GUI工具栏配置参数，包含normal和long两种模式
     pub gui: HashMap<String, String>,
 }
 impl SettingsCollection {
@@ -227,15 +239,15 @@ Sundry:
     }
 }
 
-/// 路径信息结构体
-/// 存储程序运行所需的所有路径
+/// 程序路径信息结构体
+/// 存储程序运行时所需的关键路径信息
 #[derive(Clone, Debug)]
 pub struct PathInfos {
-    /// 程序运行目录
+    /// 程序根目录路径
     pub dir_path: PathBuf,
-    /// 截图程序exe路径
+    /// ScreenCapture 可执行文件路径
     pub exe_path: PathBuf,
-    /// 配置文件路径
+    /// 配置文件（config.toml）路径
     pub conf_path: PathBuf,
 }
 impl std::fmt::Display for PathInfos {
@@ -251,21 +263,22 @@ impl std::fmt::Display for PathInfos {
 }
 
 /// 字符串格式的按键组合结构体
-/// 用于从配置文件中读取的原始热键设置
+/// 用于从配置文件中读取和解析热键设置
 #[derive(Clone)]
 pub struct KeyStringGroups {
-    /// 修饰键列表（如Ctrl、Alt、Shift等）
+    /// 修饰键名称列表（如"Ctrl"、"Alt"、"Shift"等字符串）
     pub mod_keys: Vec<String>,
-    /// 主键（如A-Z、F1-F12等）
+    /// 主键名称（如"A"、"F1"、"Escape"等字符串）
     pub vkey: String,
 }
 
-/// 单个热键组合的值部分
+/// 热键组合值结构体
+/// 存储已转换为系统API格式的热键信息
 #[derive(Clone, Debug)]
 pub struct HotkeyValue {
-    /// 修饰键
+    /// 修饰键枚举列表（Windows API格式）
     pub mod_keys: Vec<ModKey>,
-    /// 主键
+    /// 主键枚举值（Windows API格式）
     pub vkey: VKey,
 }
 impl HotkeyValue {
@@ -280,21 +293,31 @@ impl HotkeyValue {
     }
 }
 
-/// Windows API格式的按键组合映射
-/// 用于实际注册系统热键
-/// 键名对应：screen_capture, screen_capture_long, pin_to_screen, exit, open_conf
+/// Windows API 格式的热键组合映射类型
+/// 键名对应功能：
+/// - "screen_capture": 截屏
+/// - "screen_capture_long": 长截屏  
+/// - "pin_to_screen": 钉图
+/// - "exit": 退出程序
+/// - "open_conf": 打开配置
+/// - "launch_app": 启动应用
 pub type KeyVkGroups = HashMap<&'static str, HotkeyValue>;
 
-/// 将快捷键配置字符串转换为系统可用的按键组合
+/// 将字符串格式的快捷键配置转换为系统API可用的按键组合
 ///
 /// ### 参数
-/// - `groups`: 包含按键字符串的结构体
+/// - `groups`: 包含修饰键和主键字符串的结构体
 ///
 /// ### 返回值
-/// - `(bool, Vec<ModKey>, VKey)`: 转换状态和结果
-/// - 第一个值表示转换是否成功
-/// - 第二个值为转换后的修饰键数组
-/// - 第三个值为转换后的主键值
+/// - `(bool, Vec<ModKey>, VKey)`: 转换结果元组
+///   - 第一个值：转换是否成功
+///   - 第二个值：转换后的修饰键枚举数组
+///   - 第三个值：转换后的主键枚举值
+///
+/// ### 功能
+/// - 解析修饰键字符串为ModKey枚举
+/// - 解析主键字符串为VKey枚举
+/// - 处理无效键名并设置错误状态
 pub fn match_keys(groups: &KeyStringGroups) -> (bool, Vec<ModKey>, VKey) {
     let group1 = &groups.mod_keys;
     let group2 = groups.vkey.as_ref();
@@ -325,6 +348,18 @@ pub fn match_keys(groups: &KeyStringGroups) -> (bool, Vec<ModKey>, VKey) {
     (status, results_mod, result_vk)
 }
 
+/// 处理和规范化路径字符串
+///
+/// ### 参数
+/// - `str_path`: 需要处理的路径字符串
+///
+/// ### 返回值
+/// - `String`: 规范化后的路径字符串
+///
+/// ### 功能
+/// - 统一路径分隔符为正斜杠
+/// - 移除重复的分隔符
+/// - 去除首尾空白字符和多余的引号、分隔符
 pub fn handle_str_path(str_path: impl ToString) -> String {
     str_path
         .to_string()
@@ -335,22 +370,25 @@ pub fn handle_str_path(str_path: impl ToString) -> String {
         .to_string()
 }
 
-/// 解析路径字符串为PathBuf
+/// 解析路径字符串为PathBuf，支持特殊符号
 ///
 /// ### 特殊路径符号
-/// - `&`: 返回空路径（手动选择）
-/// - `@`: 返回桌面路径
-/// - `*`: 返回图片文件夹路径
+/// - `&`: 返回空路径（表示手动选择路径）
+/// - `@`: 返回用户桌面目录路径
+/// - `*`: 返回用户图片文件夹路径
 ///
 /// ### 参数
 /// - `path`: 待解析的路径字符串
+/// - `should_dir`: 路径是否应该是目录（true）或文件（false）
 ///
 /// ### 返回值
-/// - `PathBuf`: 解析后的路径
+/// - `PathBuf`: 解析后的规范化路径
 ///
-/// ### 说明
-/// - 自定义路径必须存在且为目录
-/// - 无效路径时显示警告弹窗并返回空路径
+/// ### 功能
+/// - 处理特殊符号并返回对应系统路径
+/// - 验证自定义路径的存在性和类型
+/// - 对无效路径显示警告并返回空路径
+/// - 返回绝对路径形式
 pub fn resolve_path(path: impl ToString, should_dir: bool) -> PathBuf {
     let path = path.to_string();
     match path.as_ref() {
@@ -382,6 +420,18 @@ pub fn resolve_path(path: impl ToString, should_dir: bool) -> PathBuf {
     }
 }
 
+/// 格式化路径显示字符串
+///
+/// ### 参数
+/// - `path`: 要显示的路径
+/// - `info`: 当路径为空时显示的替代信息
+///
+/// ### 返回值
+/// - `String`: 格式化后的显示字符串
+///
+/// ### 功能
+/// - 当路径为空时返回指定的替代信息
+/// - 否则返回路径的字符串表示
 fn path_display(path: &PathBuf, info: impl ToString) -> String {
     if path == &PathBuf::new() {
         info.to_string()
