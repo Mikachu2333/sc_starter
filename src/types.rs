@@ -188,14 +188,15 @@ Hotkeys Settings:
     Pin Image:        {}
     Exit:             {}
     Config:           {}
+    Launch App:       {}
 
 Sundry:
-    Save Path:\t\t{}
-    Launch App Path:\t{}
-    Launch App Args:\t{}
-    Auto Startup:\t{}
-    Comp Level:\t\t{}
-    Scale Level:\t\t{}
+    Save Path:       {}
+    Launch App Path: {}
+    Launch App Args: {}
+    Auto Startup:    {}
+    Comp Level:      {}
+    Scale Level:     {}
     GUI:
         Normal: {}
         Long:   {}
@@ -206,9 +207,16 @@ Sundry:
             get_key_str("pin_to_screen"),
             get_key_str("exit"),
             get_key_str("open_conf"),
-            self.path.save_path.display(),
-            self.path.launch_app.path.display(),
-            self.path.launch_app.args.join(" "),
+            get_key_str("launch_app"),
+            path_display(&self.path.save_path, "Manual Select"),
+            path_display(&self.path.launch_app.path, "None"),
+            {
+                if self.path.launch_app.args.is_empty() {
+                    "None".to_string()
+                } else {
+                    format!("<{}>", self.path.launch_app.args.join(" "))
+                }
+            },
             self.sundry.auto_start,
             self.sundry.comp_level,
             self.sundry.scale_level,
@@ -370,5 +378,13 @@ pub fn resolve_path(path: impl ToString, should_dir: bool) -> PathBuf {
                 PathBuf::new()
             }
         }
+    }
+}
+
+fn path_display(path: &PathBuf, info: impl ToString) -> String {
+    if path == &PathBuf::new() {
+        info.to_string()
+    } else {
+        path.display().to_string()
     }
 }

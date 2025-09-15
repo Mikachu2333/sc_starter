@@ -154,21 +154,20 @@ fn get_path_from_config(default: PathConfig, config: &Value) -> PathConfig {
                 } else {
                     default.launch_app.path.to_str().unwrap().to_string()
                 };
-            let str_launch_args  = if let Some(launch) = section.get("launch_app_args").and_then(|v| v.as_str()) {
+            let str_launch_args =
+                if let Some(launch) = section.get("launch_app_args").and_then(|v| v.as_str()) {
                     launch.split("\t").map(String::from).collect()
                 } else {
                     default.launch_app.args
                 };
 
-            (str_save_path, str_launch_path,str_launch_args)
+            (str_save_path, str_launch_path, str_launch_args)
         }
-        None => {
-            (
-                default.save_path.to_str().unwrap().to_string(),
-                default.launch_app.path.to_str().unwrap().to_string(),
-                default.launch_app.args
-            )
-        }
+        None => (
+            default.save_path.to_str().unwrap().to_string(),
+            default.launch_app.path.to_str().unwrap().to_string(),
+            default.launch_app.args,
+        ),
     };
 
     PathConfig {
