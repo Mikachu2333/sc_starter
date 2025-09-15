@@ -42,9 +42,10 @@ impl MsgBoxType {
     }
 }
 
+/// If title is empty, it will be set to MsgBoxType
 fn raw_msgbox(
-    msg: impl Into<String>,
-    title: impl Into<String>,
+    msg: impl ToString,
+    title: impl ToString,
     msgtype: MsgBoxType,
     btntype: MsgBtnType,
 ) -> i32 {
@@ -67,9 +68,9 @@ fn raw_msgbox(
 
         result
     };
-    let msg = msg.into();
+    let msg = msg.to_string();
     let title = {
-        let temp = title.into();
+        let temp = title.to_string();
         if temp.is_empty() {
             msgtype.to_string()
         } else {
@@ -86,23 +87,37 @@ fn raw_msgbox(
     result.status.code().unwrap()
 }
 
+/// Displays an information message box with an OK button.
+/// If title is empty, it will be set to "Information"
 #[allow(dead_code)]
-pub fn info_msgbox(msg: impl Into<String>, title: impl Into<String>) -> i32 {
+pub fn info_msgbox(msg: impl ToString, title: impl ToString) -> i32 {
     raw_msgbox(msg, title, MsgBoxType::Info, MsgBtnType::Ok)
 }
+
+/// Displays an error message box with an OK button.
+/// If title is empty, it will be set to "Error"
 #[allow(dead_code)]
-pub fn error_msgbox(msg: impl Into<String>, title: impl Into<String>) -> i32 {
+pub fn error_msgbox(msg: impl ToString, title: impl ToString) -> i32 {
     raw_msgbox(msg, title, MsgBoxType::Error, MsgBtnType::Ok)
 }
+
+/// Displays a warning message box with an OK button.
+/// If title is empty, it will be set to "Warning"
 #[allow(dead_code)]
-pub fn warn_msgbox(msg: impl Into<String>, title: impl Into<String>) -> i32 {
+pub fn warn_msgbox(msg: impl ToString, title: impl ToString) -> i32 {
     raw_msgbox(msg, title, MsgBoxType::Warn, MsgBtnType::Ok)
 }
+
+/// Displays a question message box with Yes/No buttons.
+/// If title is empty, it will be set to "Question"
 #[allow(dead_code)]
-pub fn quest_msgbox_yesno(msg: impl Into<String>, title: impl Into<String>) -> i32 {
+pub fn quest_msgbox_yesno(msg: impl ToString, title: impl ToString) -> i32 {
     raw_msgbox(msg, title, MsgBoxType::Quest, MsgBtnType::YesNo)
 }
+
+/// Displays a question message box with OK/Cancel buttons.
+/// If title is empty, it will be set to "Question"
 #[allow(dead_code)]
-pub fn quest_msgbox_okcancel(msg: impl Into<String>, title: impl Into<String>) -> i32 {
+pub fn quest_msgbox_okcancel(msg: impl ToString, title: impl ToString) -> i32 {
     raw_msgbox(msg, title, MsgBoxType::Quest, MsgBtnType::OkCancel)
 }
