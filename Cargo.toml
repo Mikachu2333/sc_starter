@@ -1,6 +1,6 @@
 [package]
 name = "SC_Starter"
-version = "2.7.2"
+version = "2.7.3"
 edition = "2021"
 
 [profile.release]
@@ -13,8 +13,8 @@ directories = "6.0.0"
 rust-embed = { version = "8.7.2", features = ["compression"] }
 single-instance = "0.3.3"
 windows-hotkeys = "0.2.1"
-toml = "0.9.2"
-chrono = "0.4.41"
+toml = "0.9.5"
+chrono = "0.4.42"
 tray-icon = "0.21.0"
-tao = "0.34.0"
+tao = "0.34.3"
 mslnk = "0.1.8"
