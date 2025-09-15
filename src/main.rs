@@ -15,6 +15,7 @@ mod hotkeys;
 mod msgbox;
 mod tray;
 mod types;
+mod window_handle;
 
 use crate::config::*;
 use crate::file_ops::*;

@@ -4,18 +4,21 @@
 //! - 注册全局快捷键
 //! - 处理快捷键事件
 //! - 管理快捷键线程
+//! - 管理启动应用程序的进程状态
 
 use crate::types::*;
+use crate::window_handle::{is_process_running, set_window_topmost_by_pid};
 use crate::{file_ops::operate_exe, msgbox::error_msgbox};
 use std::{
     collections::HashMap,
-    sync::mpsc,
+    sync::{mpsc, Arc, Mutex},
     thread,
     {path::PathBuf, thread::JoinHandle},
 };
 use windows_hotkeys::{singlethreaded::HotkeyManager, HotkeyManagerImpl};
 
 const T_SEC_1_100: std::time::Duration = std::time::Duration::from_millis(10);
+const T_SEC_1_2: std::time::Duration = std::time::Duration::from_millis(500);
 
 /// 设置全局快捷键并返回事件发送器
 ///
@@ -49,6 +52,9 @@ pub fn set_hotkeys(
         let key_groups = settings_collected.keys_collection;
         let mut hkm = HotkeyManager::new();
 
+        // 初始化启动应用程序的进程ID管理
+        let launch_pid: Arc<Mutex<u32>> = Arc::new(Mutex::new(0));
+
         let comp_clone = comp.clone();
         let scale_clone = scale.clone();
         let exe_path_clone = exe_path.clone();
@@ -75,16 +81,54 @@ pub fn set_hotkeys(
         };
 
         // 注册Launch快捷键
+        let launch_pid_clone = Arc::clone(&launch_pid);
         let hotkey_launch = hkm.register(
             key_groups.get("launch_app").unwrap().vkey,
             &key_groups.get("launch_app").unwrap().mod_keys,
             move || {
-                if launch.args.join(" ").trim().is_empty() {
-                    let _ = std::process::Command::new(&launch.path).spawn();
+                let current_pid = *launch_pid_clone.lock().unwrap();
+
+                // 获取启动程序的文件名用于进程检测
+                let process_name = launch
+                    .path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("")
+                    .to_string();
+
+                // 检查进程是否仍在运行
+                if current_pid != 0 {
+                    unsafe {
+                        if is_process_running(&process_name) {
+                            // 进程存在，直接置顶窗口
+                            set_window_topmost_by_pid(current_pid);
+                            return;
+                        } else {
+                            // 进程已退出，重置PID
+                            *launch_pid_clone.lock().unwrap() = 0;
+                        }
+                    }
+                }
+
+                // 启动新进程
+                let child = if launch.args.join(" ").trim().is_empty() {
+                    std::process::Command::new(&launch.path).spawn()
                 } else {
-                    let _ = std::process::Command::new(&launch.path)
+                    std::process::Command::new(&launch.path)
                         .args(&launch.args)
-                        .spawn();
+                        .spawn()
+                };
+
+                // 如果程序启动成功，记录PID并等待窗口创建后置顶
+                if let Ok(child) = child {
+                    let pid = child.id();
+                    *launch_pid_clone.lock().unwrap() = pid;
+
+                    // 等待程序启动并创建窗口后置顶
+                    std::thread::sleep(T_SEC_1_2);
+                    unsafe {
+                        set_window_topmost_by_pid(pid);
+                    }
                 }
             },
         );
