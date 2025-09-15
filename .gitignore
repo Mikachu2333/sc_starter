@@ -2,3 +2,5 @@ target/
 .vscode/
 *.pdb
 Cargo.lock
+*.log
+*.diff
