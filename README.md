@@ -10,6 +10,7 @@ A launcher and manager for ScreenCapture with global hotkeys and tray integratio
 
 - **内置截图程序** / Embedded ScreenCapture exe - 无需额外安装，一键运行
 - **全局快捷键** / Global Hotkeys - 系统级快捷键，任意位置触发
+- **启动应用程序** / Launch Applications - 快速启动常用程序，支持进程管理和窗口置顶
 - **路径管理** / Path Management - 支持多种保存方式和自定义路径
 - **文件保护机制** / File Protection - 自动监控和恢复核心文件
 - **单例运行** / Singleton Mode - 防止程序多开造成冲突
@@ -37,6 +38,7 @@ A launcher and manager for ScreenCapture with global hotkeys and tray integratio
 | 普通截图 / Screenshot    | `Ctrl+Win+Alt+P`     | 矩形区域截图 / Rectangular area capture              |
 | 长截图 / Long Screenshot | `Ctrl+Win+Alt+L`     | 滚动截图 / Scrolling capture                         |
 | 钉图 / Pin Image         | `Ctrl+Win+Alt+T`     | 将剪贴板图片钉到屏幕 / Pin clipboard image to screen |
+| 启动应用 / Launch App    | `Ctrl+Win+Alt+A`     | 启动配置的外部应用程序 / Launch configured application |
 | 打开配置 / Open Config   | `Ctrl+Win+Alt+O`     | 打开配置文件编辑 / Open config file for editing      |
 | 退出程序 / Exit          | `Win+Ctrl+Shift+Esc` | 完全退出程序 / Exit application completely           |
 
@@ -82,7 +84,9 @@ function = "Modifier1+Modifier2+...@TargetKey"
 - **至少两个修饰键** / Minimum 2 modifiers required
 - **避免系统快捷键冲突** / Avoid system hotkey conflicts
 
-### [path] 保存路径配置 / Save Path Configuration
+### [path] 路径配置 / Path Configuration
+
+#### 截图保存路径 / Screenshot Save Path
 
 | 设置值 / Value   | 功能 / Function              | 说明 / Description       |
 | ---------------- | ---------------------------- | ------------------------ |
@@ -90,6 +94,28 @@ function = "Modifier1+Modifier2+...@TargetKey"
 | `@`              | 桌面 / Desktop               | 自动保存到桌面           |
 | `*`              | 图片文件夹 / Pictures Folder | 自动保存到用户图片文件夹 |
 | `D:/Screenshots` | 自定义路径 / Custom Path     | 保存到指定文件夹         |
+
+#### 启动应用程序配置 / Launch Application Configuration
+
+**应用程序路径 / Application Path:**
+
+- 支持可执行文件：`.exe`, `.bat`, `.cmd`, `.com`, `.msi`
+- 支持文档文件：`.html`, `.txt`, `.pdf`, `.docx` 等（通过默认程序打开）
+- 可执行文件支持进程管理和窗口置顶功能
+- 文档文件每次都会重新打开
+
+**命令行参数 / Command Line Arguments:**
+
+- 多个参数用制表符（Tab）分隔
+- 支持路径参数和开关参数
+- 示例：`-fullscreen	--config=custom.ini`
+
+**行为说明 / Behavior Description:**
+
+- **可执行文件**：首次启动记录进程ID，再次按快捷键时检测进程状态
+  - 如果进程运行中 → 窗口置顶显示
+  - 如果进程已退出 → 启动新进程
+- **文档文件**：每次都通过系统默认程序打开，不进行进程管理
 
 #### 路径格式要求 / Path Format Requirements
 
@@ -172,6 +198,11 @@ exit = "Win+Ctrl+Shift@VK_ESCAPE"
 # 打开配置文件 / Open configuration file
 open_conf = "Ctrl+Win+Alt@O"
 
+# 调用其它软件 / Launch other application
+# 该软件将自动置顶 / The application will be set to topmost
+# 软件路径在下方的 path 配置类别中指定
+launch_app = "Ctrl+Win+Alt@A"
+
 [path]
 # 设置图片的自动保存位置，可选以下几种：
 # Configure automatic save location for images, options:
@@ -184,6 +215,15 @@ open_conf = "Ctrl+Win+Alt@O"
 # 路径必须使用斜杠『/』或双反斜杠『\\』
 # Path must use slashes "/" or double backslashes "\\"
 dir = "&"
+
+# 需要启动的程序路径，要求同上
+# Process path you want to launch
+launch_app_path = "C:/Windows/System32/notepad.exe"
+# 启动参数，可以置空
+# 使用 Tab（打不出来可以复制这个<	>）间隔每个参数
+# Process Args, blank is allowed
+# Use Tab to separate each argument (it may not be typed, you can copy this <	>)
+launch_app_args = ""
 
 [sundry]
 # 设置是否开机自启
