@@ -37,7 +37,7 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
     };
 
     // 解析TOML内容
-    let config: Value = match config_content.parse() {
+    let config: Value = match toml::from_str(&config_content) {
         Ok(parsed) => parsed,
         Err(e) => {
             eprintln!("Failed to parse config file: {}", e);
