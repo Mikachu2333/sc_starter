@@ -115,9 +115,9 @@ fn main() {
     let gui = settings.gui.clone();
 
     let event_handler = std::thread::spawn(move || {
-        // 新增：右键触发长截图的节流配置
-        let debounce = Duration::from_millis(800);
-        let mut last_right_long = Instant::now() - Duration::from_secs(10);
+        let debounce = Duration::from_secs(1);
+        // 确保第一次右键不会被当成抖动忽略
+        let mut last_right_long = Instant::now() - debounce;
 
         while let Ok(event) = event_receiver.recv() {
             // 检查程序是否应该退出
@@ -138,7 +138,12 @@ fn main() {
                             save_path_get(&save_path),
                         ]
                         .to_vec();
-                        operate_exe(&exe_path, args, gui_clone.clone());
+                        // 放到后台线程，避免阻塞事件处理
+                        let exe_path_clone = exe_path.clone();
+                        let gui_for_thread = gui_clone.clone();
+                        std::thread::spawn(move || {
+                            operate_exe(&exe_path_clone, args, gui_for_thread);
+                        });
                     }
                 }
                 // 单击事件处理
@@ -167,9 +172,14 @@ fn main() {
                                     save_path_get(&save_path),
                                 ]
                                 .to_vec();
-                                operate_exe(&exe_path, args, gui_clone.clone());
+                                // 放到后台线程，避免阻塞导致“抖动事件”延迟处理而误通过
+                                let exe_path_clone = exe_path.clone();
+                                let gui_for_thread = gui_clone.clone();
+                                std::thread::spawn(move || {
+                                    operate_exe(&exe_path_clone, args, gui_for_thread);
+                                });
                             } else {
-                                // 忽略抖动/快速重复点击
+                                // 忽略抖动
                             }
                         }
                     }
