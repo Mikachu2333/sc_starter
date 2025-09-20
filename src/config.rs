@@ -222,22 +222,22 @@ fn get_sundry_settings(default: Sundry, config: &Value) -> Sundry {
     let comp = sundry_section
         .and_then(|t| t.get("comp_level"))
         .and_then(|v| v.as_integer())
-        .and_then(|num| {
-            if num >= -1 && num <= 10 {
-                Some(num as i32)
+        .map(|num| {
+            if (-1..=10).contains(&num) {
+                num as i32
             } else {
-                Some(default.comp_level)
+                default.comp_level
             }
         })
         .unwrap_or(default.comp_level);
     let scale = sundry_section
         .and_then(|t| t.get("scale_ratio"))
         .and_then(|v| v.as_integer())
-        .and_then(|num| {
-            if num >= 1 && num <= 100 {
-                Some(num as i32)
+        .map(|num| {
+            if (1..=100).contains(&num) {
+                num as i32
             } else {
-                Some(default.scale_level)
+                default.scale_level
             }
         })
         .unwrap_or(default.scale_level);
@@ -301,7 +301,7 @@ fn get_gui_config(default: HashMap<String, String>, config: &Value) -> HashMap<S
 /// - 根据renew参数决定是否创建新的快捷方式
 /// - 快捷方式名称基于可执行文件名自动生成
 /// - 用于控制程序开机自启动行为
-pub fn set_startup(renew: bool, startup_dir: &PathBuf, self_path: &PathBuf) {
+pub fn set_startup(renew: bool, startup_dir: &std::path::Path, self_path: &PathBuf) {
     // 生成快捷方式的名称，基于当前可执行文件的主名称
     let lnk_name = format!("{}.lnk", self_path.file_stem().unwrap().to_str().unwrap());
     // 构建启动目录中快捷方式的完整路径

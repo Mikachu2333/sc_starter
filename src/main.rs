@@ -23,7 +23,6 @@ use crate::hotkeys::*;
 use crate::tray::*;
 use crate::types::*;
 
-use single_instance;
 use single_instance::SingleInstance;
 use std::collections::HashMap;
 use std::{

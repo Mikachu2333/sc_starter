@@ -85,7 +85,7 @@ fn check_exe_latest(file_path: &Path) -> bool {
         .expect("Failed to execute command");
     let hash_value = {
         let original = String::from_utf8_lossy(&hash.stdout);
-        let line = original.lines().skip(1).next().unwrap();
+        let line = original.lines().nth(1).unwrap();
         line.trim().to_ascii_uppercase()
     };
     RES_HASH.to_ascii_uppercase() == hash_value
@@ -115,14 +115,14 @@ pub fn unzip_res(paths: &PathInfos, exists: &FileExist) {
         .expect("Error read embedded Config res file.");
 
     if (!exists.exe_exist) || (!exists.exe_latest) {
-        let _ = fs::write(&paths.exe_path, screen_capture_res.data.as_ref())
+        fs::write(&paths.exe_path, screen_capture_res.data.as_ref())
             .expect("Error write EXE file.");
         println!("EXE: Release exe file.");
     } else {
         println!("EXE: No need to release.");
     }
     if !exists.conf_exist {
-        let _ = fs::write(&paths.conf_path, config_res.data.as_ref())
+        fs::write(&paths.conf_path, config_res.data.as_ref())
             .expect("Error write config file.");
         println!("CONF: Release config file.");
         operate_exe(&paths.conf_path, "conf", HashMap::new());
@@ -198,7 +198,7 @@ fn execute_string_mode(path: &Path, mode: &str, gui: HashMap<String, String>) {
         }
         "exit" => {
             println!("Preparing to exit...");
-            let _ = msgbox::info_msgbox("Exit", "");
+            msgbox::info_msgbox("Exit", "");
             std::process::exit(0)
         }
         "conf" => {
@@ -211,7 +211,7 @@ fn execute_string_mode(path: &Path, mode: &str, gui: HashMap<String, String>) {
         }
         "restart" => {
             std::thread::sleep(T_SEC_3);
-            let _ = msgbox::info_msgbox(
+            msgbox::info_msgbox(
                 "Please restart the program to apply your custom settings.",
                 "Restart",
             );

@@ -1,6 +1,7 @@
 [package]
 name = "SC_Starter"
-version = "2.8.0"
+version = "2.8.1"
+# 记得更新 types.rs 中 res的版本
 edition = "2021"
 
 [profile.release]
