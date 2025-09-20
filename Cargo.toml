@@ -13,7 +13,7 @@ directories = "6.0.0"
 rust-embed = { version = "8.7.2", features = ["compression"] }
 single-instance = "0.3.3"
 windows-hotkeys = "0.2.1"
-toml = "0.9.5"
+toml = "0.9.7"
 chrono = "0.4.42"
 tray-icon = "0.21.0"
 tao = "0.34.3"
