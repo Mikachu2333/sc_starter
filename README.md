@@ -18,9 +18,9 @@ A launcher and manager for ScreenCapture with global hotkeys and tray integratio
 
 ### 托盘操作 / Tray Operations
 
-- **左键单击** / Left Click: 普通截图 / Normal screenshot
-- **左键双击** / Left Double Click: 长截图 / Long screenshot  
-- **右键单击** / Right Click: 退出程序 / Exit application
+- **左键双击** / Left Double Click: 普通截图 / Normal screenshot
+- **右键单击** / Right Double Click: 长截图 / Long screenshot  
+- **中键单击** / Middle Click: 退出程序 / Exit application
 
 ### 自启动支持 / Auto Startup
 

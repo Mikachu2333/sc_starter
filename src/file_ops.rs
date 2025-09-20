@@ -21,11 +21,7 @@ use std::{
         mpsc, Arc,
     },
     thread,
-    time::Duration,
 };
-
-static T_SEC_3: Duration = std::time::Duration::from_secs(3);
-static T_SEC_5: Duration = std::time::Duration::from_secs(5);
 
 /// 检查所需文件是否存在及其状态
 ///
@@ -144,6 +140,7 @@ where
     T: OperateMode,
 {
     mode.execute(path, gui);
+    pause(1.5);
 }
 
 /// 操作模式trait，定义不同类型的执行方式
@@ -202,7 +199,7 @@ fn execute_string_mode(path: &Path, mode: &str, gui: HashMap<String, String>) {
             };
         }
         "restart" => {
-            std::thread::sleep(T_SEC_3);
+            pause(3);
             msgbox::info_msgbox(
                 "Please restart the program to apply your custom settings.",
                 "Restart",
@@ -279,6 +276,13 @@ fn execute_vector_mode(path: &Path, args: Vec<String>, gui: HashMap<String, Stri
     let _ = command.spawn();
 }
 
+pub fn pause<T>(n: T)
+where
+    T: Into<f64>,
+{
+    std::thread::sleep(std::time::Duration::from_secs_f64(n.into()));
+}
+
 /// 监控并保护核心文件
 ///
 /// ### 参数
@@ -320,7 +324,7 @@ pub fn avoid_exe_del(paths: &PathInfos) -> Arc<AtomicBool> {
                     }
                 }
             }
-            thread::sleep(T_SEC_5);
+            pause(5);
         }
     });
 

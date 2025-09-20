@@ -29,7 +29,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tao::event_loop::EventLoop;
-use tray_icon::{MouseButton, MouseButtonState, TrayIconEvent};
+use tray_icon::{MouseButton, TrayIconEvent};
+// 新增：用于节流的时间工具
+use std::time::{Duration, Instant};
 
 /// 随机生成的GUID，用于程序单例检测
 /// 防止程序多开造成快捷键冲突
@@ -113,6 +115,10 @@ fn main() {
     let gui = settings.gui.clone();
 
     let event_handler = std::thread::spawn(move || {
+        // 新增：右键触发长截图的节流配置
+        let debounce = Duration::from_millis(800);
+        let mut last_right_long = Instant::now() - Duration::from_secs(10);
+
         while let Ok(event) = event_receiver.recv() {
             // 检查程序是否应该退出
             if !*running_clone.lock().unwrap() {
@@ -121,11 +127,10 @@ fn main() {
             let gui_clone = gui.clone();
 
             match event {
-                // 左键双击：触发截长屏
                 TrayIconEvent::DoubleClick { button, .. } => {
                     if button == MouseButton::Left {
+                        // 左键双击：触发普通截图
                         let args = [
-                            "--cap:long".to_string(),
                             format!(
                                 "--comp:{},{}",
                                 settings.sundry.comp_level, settings.sundry.scale_level
@@ -142,23 +147,30 @@ fn main() {
                     button_state,
                     ..
                 } => {
-                    if button_state == MouseButtonState::Down {
-                        if button == MouseButton::Right {
-                            // 右键单击：优雅退出（不直接 std::process::exit）
+                    if button_state == tray_icon::MouseButtonState::Up {
+                        if button == MouseButton::Middle {
+                            // 中键单击：退出
                             *running_clone.lock().unwrap() = false;
-                            // 不再调用：operate_exe(&PathBuf::new(), "exit", HashMap::new());
+                            operate_exe(&PathBuf::new(), "exit", std::collections::HashMap::new());
                             break;
-                        } else {
-                            // 左键单击：触发普通截图
-                            let args = [
-                                format!(
-                                    "--comp:{},{}",
-                                    settings.sundry.comp_level, settings.sundry.scale_level
-                                ),
-                                save_path_get(&save_path),
-                            ]
-                            .to_vec();
-                            operate_exe(&exe_path, args, gui_clone.clone());
+                        } else if button == MouseButton::Right {
+                            // 右键单击：触发截长屏（加入节流，避免短时间内重复触发）
+                            let now = Instant::now();
+                            if now.duration_since(last_right_long) >= debounce {
+                                last_right_long = now;
+                                let args = [
+                                    "--cap:long".to_string(),
+                                    format!(
+                                        "--comp:{},{}",
+                                        settings.sundry.comp_level, settings.sundry.scale_level
+                                    ),
+                                    save_path_get(&save_path),
+                                ]
+                                .to_vec();
+                                operate_exe(&exe_path, args, gui_clone.clone());
+                            } else {
+                                // 忽略抖动/快速重复点击
+                            }
                         }
                     }
                 }
