@@ -10,7 +10,6 @@ use crate::{
     msgbox,
     types::{FileExist, PathInfos, RES_HASH},
 };
-use rust_embed::*;
 use std::{
     collections::HashMap,
     fs,
@@ -25,8 +24,8 @@ use std::{
     time::Duration,
 };
 
-const T_SEC_3: Duration = std::time::Duration::from_secs(3);
-const T_SEC_5: Duration = std::time::Duration::from_secs(5);
+static T_SEC_3: Duration = std::time::Duration::from_secs(3);
+static T_SEC_5: Duration = std::time::Duration::from_secs(5);
 
 /// 检查所需文件是否存在及其状态
 ///
@@ -93,11 +92,8 @@ fn check_exe_latest(file_path: &Path) -> bool {
 
 /// 嵌入资源文件的结构体
 ///
-/// 使用rust_embed将res/目录下的文件嵌入到二进制文件中
-#[derive(Embed)]
-#[folder = "res/"]
-struct Asset;
-
+static RES_EXE: &'static [u8] = include_bytes!("../res/ScreenCapture.exe");
+static RES_CONF: &'static [u8] = include_bytes!("../res/config.toml");
 /// 解压并释放资源文件
 ///
 /// ### 参数
@@ -109,21 +105,18 @@ struct Asset;
 /// * 如果配置文件不存在，释放配置文件并执行初始化操作
 /// * 首次释放配置文件后会自动打开配置文件并提示重启程序
 pub fn unzip_res(paths: &PathInfos, exists: &FileExist) {
-    let screen_capture_res = Asset::get(paths.exe_path.file_name().unwrap().to_str().unwrap())
-        .expect("Error read embedded EXE res file.");
-    let config_res = Asset::get(paths.conf_path.file_name().unwrap().to_str().unwrap())
-        .expect("Error read embedded Config res file.");
+    let screen_capture_res = RES_EXE;
+    let config_res = RES_CONF;
 
     if (!exists.exe_exist) || (!exists.exe_latest) {
-        fs::write(&paths.exe_path, screen_capture_res.data.as_ref())
+        fs::write(&paths.exe_path, screen_capture_res)
             .expect("Error write EXE file.");
         println!("EXE: Release exe file.");
     } else {
         println!("EXE: No need to release.");
     }
     if !exists.conf_exist {
-        fs::write(&paths.conf_path, config_res.data.as_ref())
-            .expect("Error write config file.");
+        fs::write(&paths.conf_path, config_res).expect("Error write config file.");
         println!("CONF: Release config file.");
         operate_exe(&paths.conf_path, "conf", HashMap::new());
         operate_exe(Path::new(""), "restart", HashMap::new());

@@ -11,7 +11,6 @@ panic = "abort"
 
 [dependencies]
 directories = "6.0.0"
-rust-embed = { version = "8.7.2", features = ["compression"] }
 single-instance = "0.3.3"
 windows-hotkeys = "0.2.1"
 toml = "0.9.7"
