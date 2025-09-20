@@ -6,57 +6,57 @@
 //! - Windows API 调用封装
 
 // Windows API 声明
-type HWND = *mut std::ffi::c_void;
-type DWORD = u32;
-type BOOL = i32;
-type HANDLE = *mut std::ffi::c_void;
+type Hwnd = *mut std::ffi::c_void;
+type Dword = u32;
+type Bool = i32;
+type Handle = *mut std::ffi::c_void;
 
-const HWND_TOPMOST: HWND = -1isize as HWND;
+const HWND_TOPMOST: Hwnd = -1isize as Hwnd;
 const SWP_NOMOVE: u32 = 0x0002;
 const SWP_NOSIZE: u32 = 0x0001;
-const INVALID_HANDLE_VALUE: HANDLE = -1isize as HANDLE;
-const TH32CS_SNAPPROCESS: DWORD = 0x00000002;
+const INVALID_HANDLE_VALUE: Handle = -1isize as Handle;
+const TH32CS_SNAPPROCESS: Dword = 0x00000002;
 const MAX_PATH: usize = 260;
 
 #[repr(C)]
 struct PROCESSENTRY32W {
-    dw_size: DWORD,
-    cnt_usage: DWORD,
-    th32_process_id: DWORD,
+    dw_size: Dword,
+    cnt_usage: Dword,
+    th32_process_id: Dword,
     th32_default_heap_id: usize,
-    th32_module_id: DWORD,
-    cnt_threads: DWORD,
-    th32_parent_process_id: DWORD,
+    th32_module_id: Dword,
+    cnt_threads: Dword,
+    th32_parent_process_id: Dword,
     pc_pri_class_base: i32,
-    dw_flags: DWORD,
+    dw_flags: Dword,
     sz_exe_file: [u16; MAX_PATH],
 }
 
 #[link(name = "user32")]
 extern "system" {
     fn SetWindowPos(
-        hWnd: HWND,
-        hWndInsertAfter: HWND,
+        hWnd: Hwnd,
+        hWndInsertAfter: Hwnd,
         X: i32,
         Y: i32,
         cx: i32,
         cy: i32,
         uFlags: u32,
-    ) -> BOOL;
-    fn GetWindowThreadProcessId(hWnd: HWND, lpdwProcessId: *mut DWORD) -> DWORD;
+    ) -> Bool;
+    fn GetWindowThreadProcessId(hWnd: Hwnd, lpdwProcessId: *mut Dword) -> Dword;
     fn EnumWindows(
-        lpEnumFunc: unsafe extern "system" fn(HWND, isize) -> BOOL,
+        lpEnumFunc: unsafe extern "system" fn(Hwnd, isize) -> Bool,
         lParam: isize,
-    ) -> BOOL;
-    fn IsWindowVisible(hWnd: HWND) -> BOOL;
+    ) -> Bool;
+    fn IsWindowVisible(hWnd: Hwnd) -> Bool;
 }
 
 #[link(name = "kernel32")]
 extern "system" {
-    fn CreateToolhelp32Snapshot(dw_flags: DWORD, th32_process_id: DWORD) -> HANDLE;
-    fn Process32FirstW(hSnapshot: HANDLE, lppe: *mut PROCESSENTRY32W) -> BOOL;
-    fn Process32NextW(hSnapshot: HANDLE, lppe: *mut PROCESSENTRY32W) -> BOOL;
-    fn CloseHandle(hObject: HANDLE) -> BOOL;
+    fn CreateToolhelp32Snapshot(dw_flags: Dword, th32_process_id: Dword) -> Handle;
+    fn Process32FirstW(hSnapshot: Handle, lppe: *mut PROCESSENTRY32W) -> Bool;
+    fn Process32NextW(hSnapshot: Handle, lppe: *mut PROCESSENTRY32W) -> Bool;
+    fn CloseHandle(hObject: Handle) -> Bool;
 }
 
 /// 根据进程ID查找并置顶窗口
@@ -69,9 +69,9 @@ extern "system" {
 /// - 找到属于指定进程的可见窗口
 /// - 将窗口设置为置顶状态
 pub unsafe fn set_window_topmost_by_pid(process_id: u32) {
-    unsafe extern "system" fn enum_window_proc(hwnd: HWND, lparam: isize) -> BOOL {
+    unsafe extern "system" fn enum_window_proc(hwnd: Hwnd, lparam: isize) -> Bool {
         let target_pid = lparam as u32;
-        let mut window_pid: DWORD = 0;
+        let mut window_pid: Dword = 0;
 
         GetWindowThreadProcessId(hwnd, &mut window_pid);
 
@@ -107,7 +107,7 @@ pub unsafe fn is_process_running(process_name: impl ToString) -> bool {
 
     // 初始化进程条目结构
     let mut pe32 = PROCESSENTRY32W {
-        dw_size: std::mem::size_of::<PROCESSENTRY32W>() as DWORD,
+        dw_size: std::mem::size_of::<PROCESSENTRY32W>() as Dword,
         cnt_usage: 0,
         th32_process_id: 0,
         th32_default_heap_id: 0,

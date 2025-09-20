@@ -11,7 +11,7 @@ pub const RES_VERSION: &str = "2.3.3";
 
 /// 文件存在状态结构体
 /// 用于跟踪主程序所需的关键文件状态和版本信息
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct FileExist {
     /// ScreenCapture 可执行文件是否存在
     pub exe_exist: bool,
@@ -19,15 +19,6 @@ pub struct FileExist {
     pub exe_latest: bool,
     /// 配置文件是否存在
     pub conf_exist: bool,
-}
-impl Default for FileExist {
-    fn default() -> Self {
-        FileExist {
-            exe_exist: false,
-            exe_latest: false,
-            conf_exist: false,
-        }
-    }
 }
 
 /// 杂项设置结构体
@@ -308,15 +299,15 @@ pub struct HotkeyValue {
     /// 主键枚举值（Windows API格式）
     pub vkey: VKey,
 }
-impl HotkeyValue {
-    pub fn to_string(&self) -> String {
+impl std::fmt::Display for HotkeyValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mods_str: Vec<String> = self
             .mod_keys
             .iter()
             .map(|m| format!("{:?}", m.to_string()))
             .collect();
 
-        format!("{}@{:?}", mods_str.join("+"), self.vkey.to_string())
+        write!(f, "{}@{:?}", mods_str.join("+"), self.vkey.to_string())
     }
 }
 
@@ -438,7 +429,7 @@ pub fn resolve_path(path: impl ToString, should_dir: bool) -> PathBuf {
                 temp.canonicalize().unwrap()
             } else {
                 if should_dir {
-                    let _ = crate::msgbox::warn_msgbox(
+                    crate::msgbox::warn_msgbox(
                         format!(
                             "{}\nPath you give is valid, so we use EMPTY as default.",
                             &path

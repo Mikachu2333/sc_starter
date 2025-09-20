@@ -51,13 +51,16 @@ impl MsgBoxType {
             MsgBoxType::Info => 64,
         }
     }
-    fn to_string(&self) -> String {
-        match self {
-            MsgBoxType::Error => "Error".to_string(),
-            MsgBoxType::Quest => "Question".to_string(),
-            MsgBoxType::Warn => "Warning".to_string(),
-            MsgBoxType::Info => "Information".to_string(),
-        }
+}
+impl std::fmt::Display for MsgBoxType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            MsgBoxType::Error => "Error",
+            MsgBoxType::Quest => "Question",
+            MsgBoxType::Warn => "Warning",
+            MsgBoxType::Info => "Information",
+        };
+        write!(f, "{}", s)
     }
 }
 

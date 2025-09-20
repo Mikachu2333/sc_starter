@@ -180,7 +180,7 @@ fn main() {
             // 清理热键线程
             if let Some(handle) = Arc::clone(&handler_hotkeys).lock().unwrap().take() {
                 hotkey_exit_tx.send(()).ok(); // 发送退出信号
-                if let Ok(_) = handle.join() {
+                if handle.join().is_ok() {
                     println!("Hotkey handler thread terminated.");
                 }
             }
