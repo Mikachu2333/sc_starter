@@ -24,15 +24,12 @@ use crate::tray::*;
 use crate::types::*;
 
 use single_instance::SingleInstance;
-use std::collections::HashMap;
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
 use tao::event_loop::EventLoop;
-use tray_icon::MouseButton;
-use tray_icon::MouseButtonState;
-use tray_icon::TrayIconEvent;
+use tray_icon::{MouseButton, MouseButtonState, TrayIconEvent};
 
 /// 随机生成的GUID，用于程序单例检测
 /// 防止程序多开造成快捷键冲突
@@ -55,6 +52,13 @@ fn main() {
         msgbox::error_msgbox("Avoid Multiple.", "");
         panic!("Multiple!")
     };
+
+    println!("\n@@@@@@@@@@@@@@@@\n@  SC_Starter  @\n@@@@@@@@@@@@@@@@");
+    println!(
+        "Version:\t{}\nBuild Time:\t{}",
+        PKG_VERSION,
+        &PKG_BUILD_TIME[..=18]
+    );
 
     // 初始化路径信息
     // 设置程序所需文件的存放路径，包括:
@@ -140,9 +144,9 @@ fn main() {
                 } => {
                     if button_state == MouseButtonState::Down {
                         if button == MouseButton::Right {
-                            // 右键单击：退出程序
+                            // 右键单击：优雅退出（不直接 std::process::exit）
                             *running_clone.lock().unwrap() = false;
-                            operate_exe(&PathBuf::new(), "exit", HashMap::new());
+                            // 不再调用：operate_exe(&PathBuf::new(), "exit", HashMap::new());
                             break;
                         } else {
                             // 左键单击：触发普通截图
@@ -173,9 +177,8 @@ fn main() {
     avoid_exe_del(&path_infos);
 
     // 主事件循环
-    // 处理热键事件和程序状态管理
     event_loop.run(move |_event, _, control_flow| {
-        // 程序退出处理
+        // 一旦托盘事件发生，会通过 UserEvent 唤醒到这里
         if !*running.lock().unwrap() || event_handler.is_finished() {
             // 清理热键线程
             if let Some(handle) = Arc::clone(&handler_hotkeys).lock().unwrap().take() {
@@ -190,7 +193,6 @@ fn main() {
 
             *control_flow = tao::event_loop::ControlFlow::Exit; // 退出事件循环
         } else {
-            // 继续等待事件
             *control_flow = tao::event_loop::ControlFlow::Wait;
         }
     });

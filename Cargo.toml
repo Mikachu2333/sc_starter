@@ -1,13 +1,17 @@
 [package]
 name = "SC_Starter"
-version = "2.8.1"
+version = "2.8.2"
 # 记得更新 types.rs 中 res的版本
 edition = "2021"
+build = "build.rs"
 
 [profile.release]
 strip = true
 lto = true
 panic = "abort"
+
+[build-dependencies]
+vergen = { version = "9.0.6", features = ["build"] }
 
 [dependencies]
 directories = "6.0.0"

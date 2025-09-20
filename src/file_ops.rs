@@ -8,7 +8,7 @@
 
 use crate::{
     msgbox,
-    types::{FileExist, PathInfos, RES_HASH},
+    types::{FileExist, PathInfos, RES_HASH_SHA1},
 };
 use std::{
     collections::HashMap,
@@ -87,13 +87,13 @@ fn check_exe_latest(file_path: &Path) -> bool {
         let line = original.lines().nth(1).unwrap();
         line.trim().to_ascii_uppercase()
     };
-    RES_HASH.to_ascii_uppercase() == hash_value
+    RES_HASH_SHA1.to_ascii_uppercase() == hash_value
 }
 
 /// 嵌入资源文件的结构体
-///
-static RES_EXE: &'static [u8] = include_bytes!("../res/ScreenCapture.exe");
-static RES_CONF: &'static [u8] = include_bytes!("../res/config.toml");
+static RES_EXE: &[u8] = include_bytes!("../res/ScreenCapture.exe");
+static RES_CONF: &[u8] = include_bytes!("../res/config.toml");
+
 /// 解压并释放资源文件
 ///
 /// ### 参数
@@ -109,8 +109,7 @@ pub fn unzip_res(paths: &PathInfos, exists: &FileExist) {
     let config_res = RES_CONF;
 
     if (!exists.exe_exist) || (!exists.exe_latest) {
-        fs::write(&paths.exe_path, screen_capture_res)
-            .expect("Error write EXE file.");
+        fs::write(&paths.exe_path, screen_capture_res).expect("Error write EXE file.");
         println!("EXE: Release exe file.");
     } else {
         println!("EXE: No need to release.");
