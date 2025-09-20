@@ -7,10 +7,7 @@
 
 use tray_icon::{Icon, TrayIconBuilder, TrayIconEvent};
 
-use crate::types::RES_VERSION;
-
-/// 编译时获取的包版本号
-const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
+use crate::types::{PKG_VERSION, RES_VERSION};
 
 /// 系统托盘管理器
 ///

@@ -3,11 +3,12 @@ use windows_hotkeys::keys::{ModKey, VKey};
 
 /// 嵌入式 ScreenCapture 程序的 SHA1 哈希值
 /// 用于验证嵌入的可执行文件完整性
-pub const RES_HASH: &str = "9D0655C41D1C05475C458A5091D6DE01034B0C5B";
+pub static RES_HASH: &str = "9D0655C41D1C05475C458A5091D6DE01034B0C5B";
 
 /// 嵌入式 ScreenCapture 程序的版本号
 /// 用于版本检查和更新判断
-pub const RES_VERSION: &str = "2.3.3";
+pub static RES_VERSION: &str = "2.3.3";
+pub static PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// 文件存在状态结构体
 /// 用于跟踪主程序所需的关键文件状态和版本信息
