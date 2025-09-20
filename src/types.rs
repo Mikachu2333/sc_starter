@@ -180,61 +180,88 @@ impl SettingsCollection {
             gui: default_gui,
         }
     }
-}
-impl std::fmt::Display for SettingsCollection {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let get_key_str = |key: &str| -> String {
-            self.keys_collection
-                .get(key)
-                .map(|v| v.to_string().replace("\"", ""))
-                .unwrap()
-        };
 
-        write!(
-            f,
-            r#"
-----------
-Hotkeys Settings:
+    fn launch_valid(&self) -> bool {
+        self.path.launch_app.path.exists()
+    }
+
+    /// 提取热键字符串
+    fn key_str(&self, key: &str) -> String {
+        self.keys_collection
+            .get(key)
+            .map(|v| v.to_string().replace("\"", ""))
+            .unwrap()
+    }
+
+    /// 格式化 Hotkeys
+    fn format_hotkeys(&self) -> String {
+        let launch_line = if self.launch_valid() {
+            format!("\n    Launch App:       {}", self.key_str("launch_app"))
+        } else {
+            String::new()
+        };
+        format!(
+            r#"Hotkeys Settings:
     Screenshot:       {}
     Long Screenshot:  {}
     Pin Image:        {}
     Exit:             {}
-    Config:           {}
-    Launch App:       {}
+    Config:           {}{}"#,
+            self.key_str("screen_capture"),
+            self.key_str("screen_capture_long"),
+            self.key_str("pin_to_screen"),
+            self.key_str("exit"),
+            self.key_str("open_conf"),
+            launch_line,
+        )
+    }
 
-Sundry:
-    Save Path:       {}
-    Launch App Path: {}
-    Launch App Args: {}
+    /// 格式化 Sundry 块
+    fn format_sundry(&self) -> String {
+        let launch_str = {
+            if self.launch_valid() {
+                format!(
+                    "\n    Launch App Path: {}\n    Launch App Args: <{}>",
+                    &self.path.launch_app.path.to_str().unwrap(),
+                    {
+                        let temp = self.path.launch_app.args.join(" ");
+                        if temp.trim().is_empty() {
+                            "None".to_string()
+                        } else {
+                            format!("<{}>", temp)
+                        }
+                    }
+                )
+            } else {
+                String::new()
+            }
+        };
+        format!(
+            r#"Sundry:
+    Save Path:       {}{}
     Auto Startup:    {}
     Comp Level:      {}
     Scale Level:     {}
     GUI:
         Normal: {}
-        Long:   {}
-----------
-"#,
-            get_key_str("screen_capture"),
-            get_key_str("screen_capture_long"),
-            get_key_str("pin_to_screen"),
-            get_key_str("exit"),
-            get_key_str("open_conf"),
-            get_key_str("launch_app"),
+        Long:   {}"#,
             path_display(&self.path.save_path, "Manual Select"),
-            path_display(&self.path.launch_app.path, "None"),
-            {
-                let temp = self.path.launch_app.args.join(" ");
-                if temp.trim().is_empty() {
-                    "None".to_string()
-                } else {
-                    format!("<{}>", temp)
-                }
-            },
+            launch_str,
             self.sundry.auto_start,
             self.sundry.comp_level,
             self.sundry.scale_level,
             self.gui.get("normal").unwrap(),
-            self.gui.get("long").unwrap()
+            self.gui.get("long").unwrap(),
+        )
+    }
+}
+impl std::fmt::Display for SettingsCollection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "\n----------\n{}\n\n{}\n----------\n",
+            self.format_hotkeys(),
+            self.format_sundry()
         )
     }
 }
@@ -407,13 +434,19 @@ pub fn resolve_path(path: impl ToString, should_dir: bool) -> PathBuf {
             // 验证路径是否存在
             let temp = PathBuf::from(x);
 
-            if temp.exists() && (temp.is_dir() == should_dir) {
+            if temp.exists() {
                 temp.canonicalize().unwrap()
             } else {
-                let _ = crate::msgbox::warn_msgbox(
-                    "Dir you give is not a valid path, so we use empty path.",
-                    "",
-                );
+                if should_dir {
+                    let _ = crate::msgbox::warn_msgbox(
+                        format!(
+                            "{}\nPath you give is valid, so we use EMPTY as default.",
+                            &path
+                        ),
+                        "",
+                    );
+                }
+
                 PathBuf::new()
             }
         }
