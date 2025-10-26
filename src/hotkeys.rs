@@ -73,7 +73,7 @@ pub fn set_hotkeys(
         );
         if hotkey_sc.is_err() {
             let temp = "Failed reg Hotkey sc.";
-            error_msgbox(temp, "Register Hotkey Error");
+            error_msgbox(temp, "Register Hotkey Error", 0);
             panic!("{}", &temp);
         };
 
@@ -160,7 +160,7 @@ pub fn set_hotkeys(
             );
             if hotkey_launch.is_err() {
                 let temp = "Failed reg Hotkey launch.";
-                error_msgbox(temp, "Register Hotkey Error");
+                error_msgbox(temp, "Register Hotkey Error", 0);
                 panic!("{}", &temp);
             };
         }
@@ -187,7 +187,7 @@ pub fn set_hotkeys(
         );
         if hotkey_scl.is_err() {
             let temp = "Failed reg Hotkey scl.";
-            error_msgbox(temp, "Register Hotkey Error");
+            error_msgbox(temp, "Register Hotkey Error", 0);
             panic!("{}", &temp);
         };
 
@@ -204,7 +204,7 @@ pub fn set_hotkeys(
         );
         if hotkey_pin.is_err() {
             let temp = "Failed reg Hotkey pin.";
-            error_msgbox(temp, "Register Hotkey Error");
+            error_msgbox(temp, "Register Hotkey Error", 0);
             panic!("{}", &temp);
         };
 
@@ -216,7 +216,7 @@ pub fn set_hotkeys(
         );
         if hotkey_conf.is_err() {
             let temp = "Failed reg Hotkey conf.";
-            error_msgbox(temp, "Register Hotkey Error");
+            error_msgbox(temp, "Register Hotkey Error", 0);
             panic!("{}", &temp);
         }
 
@@ -228,7 +228,7 @@ pub fn set_hotkeys(
         );
         if hotkey_exit.is_err() {
             let temp = "Failed reg Hotkey exit.";
-            error_msgbox(temp, "Register Hotkey Error");
+            error_msgbox(temp, "Register Hotkey Error", 0);
             panic!("{}", &temp);
         }
 

@@ -187,14 +187,14 @@ fn execute_string_mode(path: &Path, mode: &str, gui: HashMap<String, String>) {
         }
         "exit" => {
             println!("Preparing to exit...");
-            msgbox::info_msgbox("Exit", "");
+            msgbox::info_msgbox("Exit", "", 2);
             std::process::exit(0)
         }
         "conf" => {
             match Command::new("notepad.exe").arg(path).spawn() {
                 Ok(_) => (),
                 Err(_) => {
-                    msgbox::error_msgbox("Error to open the config file with notepad.", "");
+                    msgbox::error_msgbox("Error to open the config file with notepad.", "", 0);
                 }
             };
         }
@@ -203,6 +203,7 @@ fn execute_string_mode(path: &Path, mode: &str, gui: HashMap<String, String>) {
             msgbox::info_msgbox(
                 "Please restart the program to apply your custom settings.",
                 "Restart",
+                5,
             );
             std::process::exit(0);
         }

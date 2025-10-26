@@ -433,6 +433,7 @@ pub fn resolve_path(path: impl ToString, should_dir: bool) -> PathBuf {
                             &path
                         ),
                         "",
+                        0,
                     );
                 }
 

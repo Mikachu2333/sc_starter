@@ -51,7 +51,7 @@ fn main() {
     let instance = Box::new(SingleInstance::new(PROCESS_ID).unwrap());
     if !instance.is_single() {
         // 检测到已有实例在运行时，显示提示并退出
-        msgbox::error_msgbox("Avoid Multiple.", "");
+        msgbox::error_msgbox("Avoid Multiple.", "", 2);
         panic!("Multiple!")
     };
 

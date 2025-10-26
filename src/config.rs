@@ -135,7 +135,7 @@ fn get_kvs_from_config(
     // 在配置处理后通知用户错误
     if !errors.is_empty() {
         let error_message = format!("配置文件中存在以下问题:\n{}", errors.join("\n"));
-        msgbox::error_msgbox(error_message, "Configuration Error");
+        msgbox::error_msgbox(error_message, "Configuration Error", 0);
     }
     user_settings
 }
