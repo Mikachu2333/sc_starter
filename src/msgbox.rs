@@ -85,18 +85,17 @@ fn raw_msgbox(
     title: impl ToString,
     msgtype: MsgBoxType,
     btntype: MsgBtnType,
+    timeout: u32,
 ) -> i32 {
     let context = |x: String| {
         let mut result = x
-            .replace("\\", "\\\\")
-            .replace("'", "\\'")
-            .replace("\"", "\\\"")
-            .replace("\n", "\\n")
-            .replace("\r", "\\r")
-            .replace("\t", "\\t")
-            .replace("\0", "\\0")
-            .replace("\x08", "\\b")
-            .replace("\x0C", "\\f");
+            .replace("\r\n", "\n")
+            .replace("\r", "\n")
+            .replace("\n", "\"+vbCrLf+\"")
+            .replace("\t", "\"+vbTab+\"")
+            .replace("'","\"")
+            .trim()
+            .to_string();
 
         if result.len() > 400 {
             result.truncate(400);
@@ -115,13 +114,21 @@ fn raw_msgbox(
         }
     };
 
-    let parm = format!("\"javascript:var sh=new ActiveXObject('WScript.Shell'); sh.Popup('{}',{},'{}',{});close()\"",context(msg),btntype.to_u8(),context(title),msgtype.to_u8());
+    let parm = format!(
+        "vbscript:CreateObject(\"Wscript.Shell\").Popup(\"{}\",{},\"{}\",{}+{})(window.close)",
+        context(msg),
+        timeout,
+        context(title),
+        btntype.to_u8(),
+        msgtype.to_u8()
+    );
 
     let result = std::process::Command::new("mshta")
         .raw_arg(parm)
+        .creation_flags(0x08000000)
         .output()
         .unwrap();
-    result.status.code().unwrap()
+    result.status.code().unwrap_or(-1)
 }
 
 /// 显示信息消息框
@@ -135,8 +142,8 @@ fn raw_msgbox(
 /// - 仅包含"确定"按钮
 /// - 适用于向用户提供信息反馈
 #[allow(dead_code)]
-pub fn info_msgbox(msg: impl ToString, title: impl ToString) {
-    let _ = raw_msgbox(msg, title, MsgBoxType::Info, MsgBtnType::Ok);
+pub fn info_msgbox(msg: impl ToString, title: impl ToString, timeout: u32) {
+    let _ = raw_msgbox(msg, title, MsgBoxType::Info, MsgBtnType::Ok, timeout);
 }
 
 /// 显示错误消息框
@@ -150,8 +157,8 @@ pub fn info_msgbox(msg: impl ToString, title: impl ToString) {
 /// - 仅包含"确定"按钮
 /// - 适用于显示错误信息和异常情况
 #[allow(dead_code)]
-pub fn error_msgbox(msg: impl ToString, title: impl ToString) {
-    let _ = raw_msgbox(msg, title, MsgBoxType::Error, MsgBtnType::Ok);
+pub fn error_msgbox(msg: impl ToString, title: impl ToString, timeout: u32) {
+    let _ = raw_msgbox(msg, title, MsgBoxType::Error, MsgBtnType::Ok, timeout);
 }
 
 /// 显示警告消息框
@@ -168,8 +175,8 @@ pub fn error_msgbox(msg: impl ToString, title: impl ToString) {
 /// - 仅包含"确定"按钮
 /// - 适用于显示警告信息和注意事项
 #[allow(dead_code)]
-pub fn warn_msgbox(msg: impl ToString, title: impl ToString) {
-    let _ = raw_msgbox(msg, title, MsgBoxType::Warn, MsgBtnType::Ok);
+pub fn warn_msgbox(msg: impl ToString, title: impl ToString, timeout: u32) {
+    let _ = raw_msgbox(msg, title, MsgBoxType::Warn, MsgBtnType::Ok, timeout);
 }
 
 /// 显示Yes/No询问对话框
@@ -188,8 +195,8 @@ pub fn warn_msgbox(msg: impl ToString, title: impl ToString) {
 /// - 包含"是"和"否"按钮
 /// - 适用于需要用户确认的二选一场景
 #[allow(dead_code)]
-pub fn quest_msgbox_yesno(msg: impl ToString, title: impl ToString) -> i32 {
-    raw_msgbox(msg, title, MsgBoxType::Quest, MsgBtnType::YesNo)
+pub fn quest_msgbox_yesno(msg: impl ToString, title: impl ToString, timeout: u32) -> i32 {
+    raw_msgbox(msg, title, MsgBoxType::Quest, MsgBtnType::YesNo, timeout)
 }
 
 /// 显示OK/Cancel询问对话框
@@ -208,6 +215,6 @@ pub fn quest_msgbox_yesno(msg: impl ToString, title: impl ToString) -> i32 {
 /// - 包含"确定"和"取消"按钮
 /// - 适用于操作确认场景
 #[allow(dead_code)]
-pub fn quest_msgbox_okcancel(msg: impl ToString, title: impl ToString) -> i32 {
-    raw_msgbox(msg, title, MsgBoxType::Quest, MsgBtnType::OkCancel)
+pub fn quest_msgbox_okcancel(msg: impl ToString, title: impl ToString, timeout: u32) -> i32 {
+    raw_msgbox(msg, title, MsgBoxType::Quest, MsgBtnType::OkCancel, timeout)
 }
