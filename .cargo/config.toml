@@ -1,6 +1,6 @@
 # Cargo构建配置文件
 # 用于配置特定目标平台的编译选项
 
-[target.x86_64-pc-windows-msvc]
+[target.x86_64-pc-windows-gnu]
 # 静态链接CRT运行时，避免依赖外部运行时库
 rustflags = ["-C", "target-feature=+crt-static"]
