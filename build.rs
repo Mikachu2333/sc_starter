@@ -17,7 +17,10 @@ fn main() {
     {
         let mut res = winres::WindowsResource::new();
         res.set("FileDescription", "Starter for ScreenCapture");
-        res.set("LegalCopyright", "Copyright (C) Mikachu2333 2025. MIT License.");
+        res.set(
+            "LegalCopyright",
+            "Copyright (C) Mikachu2333 2025. MIT License.",
+        );
 
         if let Err(e) = res.compile() {
             eprintln!("{e}");

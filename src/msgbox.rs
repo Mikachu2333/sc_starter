@@ -93,7 +93,7 @@ fn raw_msgbox(
             .replace("\r", "\n")
             .replace("\n", "\"+vbCrLf+\"")
             .replace("\t", "\"+vbTab+\"")
-            .replace("'","\"")
+            .replace("'", "\"")
             .trim()
             .to_string();
 
