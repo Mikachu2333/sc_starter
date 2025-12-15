@@ -2,7 +2,7 @@ use std::{collections::HashMap, env, path::PathBuf};
 use windows_hotkeys::keys::{ModKey, VKey};
 
 /// 嵌入式 ScreenCapture 程序的相关信息与程序信息
-pub static RES_HASH_SHA1: &str = "218283A11979080FC4EAA8A48C0D942268989468";
+pub static RES_HASH_SHA1: &str = "5857D9E31E9B29739FA051DF537F36E8C1986528";
 pub static RES_VERSION: &str = "2.3.3";
 pub static PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub static PKG_BUILD_TIME: &str = env!("VERGEN_BUILD_TIMESTAMP");
