@@ -1,54 +1,93 @@
-//! Windows 消息框模块
+//! Windows message box module
 //!
-//! 本模块提供了显示各种类型消息框的功能，包括：
-//! - 信息提示框
-//! - 错误提示框  
-//! - 警告提示框
-//! - 询问对话框（支持Yes/No和OK/Cancel按钮）
+//! Calls User32.dll MessageBoxExW directly to show:
+//! - Information dialogs
+//! - Error dialogs
+//! - Warning dialogs
+//! - Question dialogs (Yes/No, OK/Cancel)
 
-use std::os::windows::process::CommandExt;
+use std::{
+    ptr,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    thread,
+};
 
-/// 消息框按钮类型枚举
-/// 定义消息框中可用的按钮组合
+static PROCESS_NAME: &str = std::env!("CARGO_PKG_NAME");
+
+#[allow(clippy::upper_case_acronyms)]
+type HWND = isize;
+#[allow(clippy::upper_case_acronyms)]
+type LPCWSTR = *const u16;
+#[allow(clippy::upper_case_acronyms)]
+type UINT = u32;
+#[allow(clippy::upper_case_acronyms)]
+type WORD = u16;
+#[allow(clippy::upper_case_acronyms)]
+type WPARAM = usize;
+#[allow(clippy::upper_case_acronyms)]
+type LPARAM = isize;
+#[allow(clippy::upper_case_acronyms)]
+type BOOL = i32;
+
+const MB_SYSTEMMODAL: UINT = 0x1000;
+const MB_SETFOREGROUND: UINT = 0x10000;
+const WM_CLOSE: UINT = 0x0010;
+
+#[link(name = "User32")]
+extern "system" {
+    fn MessageBoxExW(
+        hWnd: HWND,
+        lpText: LPCWSTR,
+        lpCaption: LPCWSTR,
+        uType: UINT,
+        wLanguageId: WORD,
+    ) -> i32;
+    fn FindWindowW(lpClassName: LPCWSTR, lpWindowName: LPCWSTR) -> HWND;
+    fn PostMessageW(hWnd: HWND, Msg: UINT, wParam: WPARAM, lParam: LPARAM) -> BOOL;
+}
+
+/// Button combinations for message boxes
 #[allow(dead_code)]
 enum MsgBtnType {
-    /// 仅显示"确定"按钮
+    /// Only the OK button
     Ok,
-    /// 显示"确定"和"取消"按钮
+    /// OK and Cancel buttons
     OkCancel,
-    /// 显示"是"和"否"按钮
+    /// Yes and No buttons
     YesNo,
 }
 impl MsgBtnType {
-    fn to_u8(&self) -> u8 {
+    fn to_u32(&self) -> UINT {
         match self {
-            MsgBtnType::Ok => 0,
-            MsgBtnType::OkCancel => 1,
-            MsgBtnType::YesNo => 4,
+            MsgBtnType::Ok => 0x0000,
+            MsgBtnType::OkCancel => 0x0001,
+            MsgBtnType::YesNo => 0x0004,
         }
     }
 }
 
-/// 消息框图标类型枚举
-/// 定义消息框中显示的图标和默认标题
+/// Icon styles for message boxes and their default titles
 #[allow(dead_code)]
 enum MsgBoxType {
-    /// 错误图标（红色X）
+    /// Error icon (red X)
     Error,
-    /// 信息图标（蓝色i）
+    /// Information icon (blue i)
     Info,
-    /// 问题图标（蓝色?）
+    /// Question icon (blue ?)
     Quest,
-    /// 警告图标（黄色!）
+    /// Warning icon (yellow !)
     Warn,
 }
 impl MsgBoxType {
-    fn to_u8(&self) -> u8 {
+    fn to_u32(&self) -> UINT {
         match self {
-            MsgBoxType::Error => 16,
-            MsgBoxType::Quest => 32,
-            MsgBoxType::Warn => 48,
-            MsgBoxType::Info => 64,
+            MsgBoxType::Error => 0x0010,
+            MsgBoxType::Quest => 0x0020,
+            MsgBoxType::Warn => 0x0030,
+            MsgBoxType::Info => 0x0040,
         }
     }
 }
@@ -58,28 +97,50 @@ impl std::fmt::Display for MsgBoxType {
             MsgBoxType::Error => "Error",
             MsgBoxType::Quest => "Question",
             MsgBoxType::Warn => "Warning",
-            MsgBoxType::Info => "Information",
+            MsgBoxType::Info => "Info",
         };
         write!(f, "{}", s)
     }
 }
 
-/// 显示消息框的底层实现函数
+fn normalize_text(text: impl ToString) -> String {
+    let result = text.to_string().replace("\r\n", "\n").replace('\r', "\n");
+    result.trim().to_string()
+}
+
+fn to_wide(text: impl ToString) -> Vec<u16> {
+    let text = text.to_string();
+    text.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+fn spawn_timeout_closer(title: Vec<u16>, timeout: u32, timed_out: Arc<AtomicBool>) {
+    if timeout == 0 {
+        return;
+    }
+
+    thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(timeout as u64));
+        unsafe {
+            let hwnd = FindWindowW(ptr::null(), title.as_ptr());
+            if hwnd != 0 {
+                timed_out.store(true, Ordering::SeqCst);
+                PostMessageW(hwnd, WM_CLOSE, 0, 0);
+            }
+        }
+    });
+}
+
+/// Core message box implementation
 ///
-/// ### 参数
-/// - `msg`: 消息内容
-/// - `title`: 消息框标题（如果为空，将使用消息类型作为标题）
-/// - `msgtype`: 消息框图标类型
-/// - `btntype`: 按钮类型
+/// ### Parameters
+/// - `msg`: Message text
+/// - `title`: Dialog title; falls back to message type name when empty
+/// - `msgtype`: Icon style
+/// - `btntype`: Button combination
+/// - `timeout`: Auto-close timeout in seconds (0 means no timeout)
 ///
-/// ### 返回值
-/// - `i32`: 用户点击按钮的返回码
-///
-/// ### 功能
-/// - 转义特殊字符防止脚本注入
-/// - 限制消息长度避免显示问题
-/// - 使用mshta调用JavaScript显示原生Windows消息框
-/// - 自动设置默认标题
+/// ### Returns
+/// - `i32`: Button result code; returns -1 when closed by timeout
 fn raw_msgbox(
     msg: impl ToString,
     title: impl ToString,
@@ -87,133 +148,117 @@ fn raw_msgbox(
     btntype: MsgBtnType,
     timeout: u32,
 ) -> i32 {
-    let context = |x: String| {
-        let mut result = x
-            .replace("\r\n", "\n")
-            .replace("\r", "\n")
-            .replace("\n", "\"+vbCrLf+\"")
-            .replace("\t", "\"+vbTab+\"")
-            .replace("'", "\"")
-            .trim()
-            .to_string();
-
-        if result.len() > 400 {
-            result.truncate(400);
-            result.push_str("...");
-        }
-
-        result
-    };
-    let msg = msg.to_string();
+    let msg = normalize_text(msg);
     let title = {
-        let temp = title.to_string();
-        if temp.is_empty() {
-            msgtype.to_string()
-        } else {
-            temp
-        }
+        let t = normalize_text(title);
+        let original = if t.is_empty() { msgtype.to_string() } else { t };
+        format!("{} [{}]", original, PROCESS_NAME)
     };
 
-    let parm = format!(
-        "vbscript:CreateObject(\"Wscript.Shell\").Popup(\"{}\",{},\"{}\",{}+{})(window.close)",
-        context(msg),
-        timeout,
-        context(title),
-        btntype.to_u8(),
-        msgtype.to_u8()
-    );
+    let text_w = to_wide(&msg);
+    let title_w = to_wide(&title);
 
-    let result = std::process::Command::new("mshta")
-        .raw_arg(parm)
-        .creation_flags(0x08000000)
-        .output()
-        .unwrap();
-    result.status.code().unwrap_or(-1)
+    let timed_out = Arc::new(AtomicBool::new(false));
+    spawn_timeout_closer(title_w.clone(), timeout, timed_out.clone());
+
+    let flags = btntype.to_u32() | msgtype.to_u32() | MB_SETFOREGROUND | MB_SYSTEMMODAL;
+    let result = unsafe { MessageBoxExW(0, text_w.as_ptr(), title_w.as_ptr(), flags, 0) };
+
+    if timed_out.load(Ordering::SeqCst) {
+        -1
+    } else {
+        result
+    }
 }
 
-/// 显示信息消息框
+/// Show an information message box
 ///
-/// ### 参数
-/// - `msg`: 消息内容
-/// - `title`: 消息框标题（如果为空，将显示"Information"）
+/// ### Parameters
+/// - `msg`: Message text
+/// - `title`: Dialog title; defaults to "Information"
+/// - `timeout`: Auto-close timeout in seconds
 ///
-/// ### 功能
-/// - 显示蓝色信息图标
-/// - 仅包含"确定"按钮
-/// - 适用于向用户提供信息反馈
+/// ### Behavior
+/// - Blue information icon
+/// - OK button only
+/// - For informational feedback
 #[allow(dead_code)]
-pub fn info_msgbox(msg: impl ToString, title: impl ToString, timeout: u32) {
-    let _ = raw_msgbox(msg, title, MsgBoxType::Info, MsgBtnType::Ok, timeout);
+pub fn info_msgbox(msg: impl ToString, title: impl ToString, timeout: u32) -> i32 {
+    raw_msgbox(msg, title, MsgBoxType::Info, MsgBtnType::Ok, timeout)
 }
 
-/// 显示错误消息框
+/// Show an error message box
 ///
-/// ### 参数
-/// - `msg`: 错误消息内容
-/// - `title`: 消息框标题（如果为空，将显示"Error"）
+/// ### Parameters
+/// - `msg`: Error text
+/// - `title`: Dialog title; defaults to "Error"
+/// - `timeout`: Auto-close timeout in seconds
 ///
-/// ### 功能
-/// - 显示红色错误图标
-/// - 仅包含"确定"按钮
-/// - 适用于显示错误信息和异常情况
+/// ### Behavior
+/// - Red error icon
+/// - OK button only
+/// - For error/exception display
 #[allow(dead_code)]
-pub fn error_msgbox(msg: impl ToString, title: impl ToString, timeout: u32) {
-    let _ = raw_msgbox(msg, title, MsgBoxType::Error, MsgBtnType::Ok, timeout);
+pub fn error_msgbox(msg: impl ToString, title: impl ToString, timeout: u32) -> i32 {
+    raw_msgbox(msg, title, MsgBoxType::Error, MsgBtnType::Ok, timeout)
 }
 
-/// 显示警告消息框
+/// Show a warning message box
 ///
-/// ### 参数
-/// - `msg`: 警告消息内容
-/// - `title`: 消息框标题（如果为空，将显示"Warning"）
+/// ### Parameters
+/// - `msg`: Warning text
+/// - `title`: Dialog title; defaults to "Warning"
+/// - `timeout`: Auto-close timeout in seconds
 ///
-/// ### 返回值
-/// - `i32`: 用户操作的返回码（通常为确定按钮）
+/// ### Returns
+/// - `i32`: Button result (usually OK)
 ///
-/// ### 功能
-/// - 显示黄色警告图标
-/// - 仅包含"确定"按钮
-/// - 适用于显示警告信息和注意事项
+/// ### Behavior
+/// - Yellow warning icon
+/// - OK button only
+/// - For cautions and notices
 #[allow(dead_code)]
-pub fn warn_msgbox(msg: impl ToString, title: impl ToString, timeout: u32) {
-    let _ = raw_msgbox(msg, title, MsgBoxType::Warn, MsgBtnType::Ok, timeout);
+pub fn warn_msgbox(msg: impl ToString, title: impl ToString, timeout: u32) -> i32 {
+    raw_msgbox(msg, title, MsgBoxType::Warn, MsgBtnType::Ok, timeout)
 }
 
-/// 显示Yes/No询问对话框
+/// Show a Yes/No question dialog
 ///
-/// ### 参数
-/// - `msg`: 询问消息内容
-/// - `title`: 消息框标题（如果为空，将显示"Question"）
+/// ### Parameters
+/// - `msg`: Question text
+/// - `title`: Dialog title; defaults to "Question"
+/// - `timeout`: Auto-close timeout in seconds
 ///
-/// ### 返回值
-/// - `i32`: 用户选择的返回码
-///   - 6: 用户点击"是"
-///   - 7: 用户点击"否"
+/// ### Returns
+/// - `i32`: Button code
+///   - 6: Yes
+///   - 7: No
 ///
-/// ### 功能
-/// - 显示蓝色问号图标
-/// - 包含"是"和"否"按钮
-/// - 适用于需要用户确认的二选一场景
+/// ### Behavior
+/// - Blue question icon
+/// - Yes and No buttons
+/// - For binary confirmations
 #[allow(dead_code)]
 pub fn quest_msgbox_yesno(msg: impl ToString, title: impl ToString, timeout: u32) -> i32 {
     raw_msgbox(msg, title, MsgBoxType::Quest, MsgBtnType::YesNo, timeout)
 }
 
-/// 显示OK/Cancel询问对话框
+/// Show an OK/Cancel question dialog
 ///
-/// ### 参数
-/// - `msg`: 询问消息内容
-/// - `title`: 消息框标题（如果为空，将显示"Question"）
+/// ### Parameters
+/// - `msg`: Question text
+/// - `title`: Dialog title; defaults to "Question"
+/// - `timeout`: Auto-close timeout in seconds
 ///
-/// ### 返回值
-/// - `i32`: 用户选择的返回码
-///   - 1: 用户点击"确定"
-///   - 2: 用户点击"取消"
+/// ### Returns
+/// - `i32`: Button code
+///   - 1: OK
+///   - 2: Cancel
 ///
-/// ### 功能
-/// - 显示蓝色问号图标
-/// - 包含"确定"和"取消"按钮
-/// - 适用于操作确认场景
+/// ### Behavior
+/// - Blue question icon
+/// - OK and Cancel buttons
+/// - For operation confirmations
 #[allow(dead_code)]
 pub fn quest_msgbox_okcancel(msg: impl ToString, title: impl ToString, timeout: u32) -> i32 {
     raw_msgbox(msg, title, MsgBoxType::Quest, MsgBtnType::OkCancel, timeout)
