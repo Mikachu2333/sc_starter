@@ -6,6 +6,7 @@ pub static RES_HASH_SHA1: &str = "5857D9E31E9B29739FA051DF537F36E8C1986528";
 pub static RES_VERSION: &str = "2.3.3";
 pub static PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub static PKG_BUILD_TIME: &str = env!("VERGEN_BUILD_TIMESTAMP");
+pub static DEBUG: bool = cfg!(debug_assertions);
 
 /// 文件存在状态结构体
 /// 用于跟踪主程序所需的关键文件状态和版本信息
@@ -340,18 +341,6 @@ pub fn match_keys(groups: &KeyStringGroups) -> (bool, Vec<ModKey>, VKey) {
     let mut results_mod: Vec<ModKey> = Vec::new();
     let mut status = true;
 
-    // 转换修饰键(如Ctrl, Alt, Shift等)
-    for i in group1 {
-        let tmp = match ModKey::from_keyname(i) {
-            Ok(mod_key) => mod_key,
-            Err(_) => {
-                status = false;
-                ModKey::NoRepeat
-            }
-        };
-        results_mod.push(tmp);
-    }
-
     // 转换主键值
     let result_vk = match VKey::from_keyname(group2) {
         Ok(vk_key) => vk_key,
@@ -361,6 +350,53 @@ pub fn match_keys(groups: &KeyStringGroups) -> (bool, Vec<ModKey>, VKey) {
         }
     };
 
+    let match_fn_series = matches!(
+        result_vk,
+        VKey::F1
+            | VKey::F2
+            | VKey::F3
+            | VKey::F4
+            | VKey::F5
+            | VKey::F6
+            | VKey::F7
+            | VKey::F8
+            | VKey::F9
+            | VKey::F10
+            | VKey::F11
+            | VKey::F12
+            | VKey::F13
+            | VKey::F14
+            | VKey::F15
+            | VKey::F16
+            | VKey::F17
+            | VKey::F18
+            | VKey::F19
+            | VKey::F20
+            | VKey::F21
+            | VKey::F22
+            | VKey::F23
+            | VKey::F24
+    );
+
+    // 转换修饰键(如Ctrl, Alt, Shift等)
+    for i in group1 {
+        let tmp = match ModKey::from_keyname(i) {
+            Ok(mod_key) => mod_key,
+            Err(_) => {
+                if match_fn_series {
+                    continue;
+                } else {
+                    status = false;
+                    ModKey::NoRepeat
+                }
+            }
+        };
+        results_mod.push(tmp);
+    }
+
+    if DEBUG {
+        dbg!(status, &results_mod, &result_vk);
+    }
     (status, results_mod, result_vk)
 }
 

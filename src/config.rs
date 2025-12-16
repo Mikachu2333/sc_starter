@@ -91,6 +91,9 @@ fn get_kvs_from_config(
         if let Some(custom_hotkey) = hotkey_table.get(default_k).and_then(|v| v.as_str()) {
             // 提取修饰键和主键
             let parts: Vec<&str> = custom_hotkey.split('@').collect();
+            if DEBUG {
+                dbg!(&custom_hotkey, &parts);
+            }
             if parts.len() != 2 {
                 // 格式错误，使用默认值
                 let error_message =
@@ -103,6 +106,9 @@ fn get_kvs_from_config(
                     mod_keys: parts[0].split('+').map(String::from).collect(),
                     vkey: parts[1].to_string(),
                 };
+                if DEBUG {
+                    dbg!(&temp.mod_keys, &temp.vkey);
+                }
 
                 match match_keys(&temp) {
                     (true, mvks, vk) => {
