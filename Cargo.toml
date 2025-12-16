@@ -1,6 +1,6 @@
 [package]
 name    = "SC_Starter"
-version = "2.8.4"
+version = "2.8.5"
 # 记得更新 types.rs 中 res的版本
 edition = "2021"
 build   = "build.rs"
@@ -17,7 +17,7 @@ codegen-units = 1
 vergen = { version = "9.0.6", features = ["build"] }
 
 [target.'cfg(windows)'.build-dependencies]
-tauri-winres = "0.3.3"
+tauri-winres = "0.3.5"
 
 
 [dependencies]
