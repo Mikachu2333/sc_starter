@@ -18,8 +18,10 @@
 # 快捷键配置说明 / Hotkey Configuration:
 # 1. 格式：控制键+控制键+...@实际键
 # 1. Format: Modifier+Modifier+...@Key
-# 2. 至少需要两个控制键，避免冲突
-# 2. At least two modifiers required to avoid conflicts
+# 2. 至少需要两个控制键，避免冲突，Fn系列可以不需要控制键
+#    注：Fn键配置类似 `@F1`
+# 2. At least two modifiers required to avoid conflicts, Fn series keys may not require modifiers
+#    Note: Fn key configuration is like `@F1`
 # 3. 支持的控制键 / Supported modifiers:
 #    - WIN/WINDOWS/SUPER
 #    - CTRL/CONTROL
@@ -28,6 +30,7 @@
 # 4. 支持的实际键 / Supported keys:
 #    - A-Z：字母键 / Letters
 #    - 0-9：数字键 / Numbers
+#    - F1-F24：Fn键 / Fn keys
 #    - VK_系列：特殊键 / Special keys
 
 # 控制截屏 / Screen capture
