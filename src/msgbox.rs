@@ -152,7 +152,15 @@ fn raw_msgbox(
     let title = {
         let t = normalize_text(title);
         let original = if t.is_empty() { msgtype.to_string() } else { t };
-        format!("{} [{}]", original, PROCESS_NAME)
+        format!(
+            "{} [{}] {}",
+            original,
+            PROCESS_NAME,
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+        )
     };
 
     let text_w = to_wide(&msg);
