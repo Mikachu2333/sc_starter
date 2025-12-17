@@ -1,5 +1,11 @@
-use std::{collections::HashMap, env, path::PathBuf};
+use std::{
+    collections::HashMap,
+    env,
+    path::{Component, PathBuf, Prefix},
+};
 use windows_hotkeys::keys::{ModKey, VKey};
+
+use crate::msgbox::warn_msgbox;
 
 /// 嵌入式 ScreenCapture 程序的相关信息与程序信息
 pub static RES_HASH_SHA1: &str = "5857D9E31E9B29739FA051DF537F36E8C1986528";
@@ -456,23 +462,72 @@ pub fn resolve_path(path: impl ToString, should_dir: bool) -> PathBuf {
             .unwrap()
             .to_path_buf(),
         x => {
-            // 验证路径是否存在
-            let temp = PathBuf::from(x);
+            let mut path = PathBuf::from(x.replace("/", "\\"));
+            let base_dir = env::current_dir().unwrap_or_default();
 
-            if temp.exists() {
-                temp.canonicalize().unwrap()
+            let is_absolute = {
+                let mut components = path.components();
+                if let Some(Component::Prefix(prefix_component)) = components.next() {
+                    let has_root_dir = matches!(components.next(), Some(Component::RootDir));
+                    if DEBUG {
+                        dbg!(has_root_dir);
+                    }
+                    if !has_root_dir {
+                        false
+                    } else {
+                        if DEBUG {
+                            dbg!(prefix_component.kind());
+                        }
+
+                        matches!(
+                            prefix_component.kind(),
+                            Prefix::VerbatimUNC(..)
+                                | Prefix::UNC(..)
+                                | Prefix::VerbatimDisk(..)
+                                | Prefix::Disk(_)
+                                | Prefix::DeviceNS(..)
+                                | Prefix::Verbatim(_)
+                        )
+                    }
+                } else {
+                    path.is_absolute()
+                }
+            };
+
+            if !is_absolute {
+                if path.starts_with("~") {
+                    if let Ok(home_dir) = std::env::var("USERPROFILE") {
+                        let mut new_path = PathBuf::from(home_dir);
+                        let remaining = path.strip_prefix("~/").ok();
+                        if let Some(rem) = remaining {
+                            new_path.push(rem);
+                            path = new_path;
+                        } else if *path == *"~" {
+                            path = new_path;
+                        } else {
+                            // "~something"
+                            path = base_dir.join(path);
+                        }
+                    }
+                } else if path.starts_with(".") {
+                    let remaining = path.strip_prefix(".\\").ok();
+                    path = base_dir.join(remaining.unwrap());
+                } else {
+                    path = base_dir.join(path);
+                }
+            }
+
+            let canonical = path.canonicalize().unwrap_or_default();
+            if canonical.exists() {
+                canonical
             } else {
                 if should_dir {
-                    crate::msgbox::warn_msgbox(
-                        format!(
-                            "{}\nPath you give is valid, so we use EMPTY as default.",
-                            &path
-                        ),
-                        "",
-                        0,
+                    warn_msgbox(
+                        format!("{}\nPath is invalid, use EMPTY as default.", path.display()),
+                        "Warn Path Invalid",
+                        5,
                     );
                 }
-
                 PathBuf::new()
             }
         }
