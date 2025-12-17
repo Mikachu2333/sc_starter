@@ -6,7 +6,10 @@
 //! - 验证配置有效性
 //! - 转换配置格式
 
-use crate::{msgbox, types::*};
+use crate::{
+    msgbox::{self, error_msgbox},
+    types::*,
+};
 use std::{collections::HashMap, fs, path::PathBuf};
 use toml::Value;
 
@@ -28,7 +31,16 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
 
     // 尝试读取TOML配置文件
     let config_content = match fs::read_to_string(conf_path) {
-        Ok(content) => content,
+        Ok(content) => content
+            .replace("“", "\"")
+            .replace("”", "\"")
+            .replace("‘", "'")
+            .replace("’", "'")
+            .replace("，", ",")
+            .replace("。", ".")
+            .replace("｜", "|")
+            .replace("：", ":")
+            .replace("—", "-"),
         Err(e) => {
             eprintln!("Failed to read config file: {}", e);
             // 返回默认配置
@@ -41,6 +53,7 @@ pub fn read_config(conf_path: &PathBuf) -> SettingsCollection {
         Ok(parsed) => parsed,
         Err(e) => {
             eprintln!("Failed to parse config file: {}", e);
+            error_msgbox(format!("{}", e), "Error Parse Config", 5);
             // 返回默认配置
             return default_settings;
         }
