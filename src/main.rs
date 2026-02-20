@@ -156,15 +156,8 @@ fn main() {
                 tray_receiver.try_recv()
             {
                 if button == MouseButton::Left {
-                    let args = vec![
-                        format!("--comp:{},{}", comp_level, scale_level),
-                        save_path_get(&save_path),
-                    ];
-                    let exe = exe_path.clone();
-                    let g = gui.clone();
-                    std::thread::spawn(move || {
-                        operate_exe(&exe, args, g);
-                    });
+                    let args = build_capture_args(comp_level, scale_level, &save_path, false);
+                    spawn_capture(&exe_path, args, gui.clone());
                 }
             }
 
@@ -172,27 +165,12 @@ fn main() {
             while let Ok(event) = menu_receiver.try_recv() {
                 if event.id == capture_id {
                     // 菜单：截图
-                    let args = vec![
-                        format!("--comp:{},{}", comp_level, scale_level),
-                        save_path_get(&save_path),
-                    ];
-                    let exe = exe_path.clone();
-                    let g = gui.clone();
-                    std::thread::spawn(move || {
-                        operate_exe(&exe, args, g);
-                    });
+                    let args = build_capture_args(comp_level, scale_level, &save_path, false);
+                    spawn_capture(&exe_path, args, gui.clone());
                 } else if event.id == long_capture_id {
                     // 菜单：长截图
-                    let args = vec![
-                        "--cap:long".to_string(),
-                        format!("--comp:{},{}", comp_level, scale_level),
-                        save_path_get(&save_path),
-                    ];
-                    let exe = exe_path.clone();
-                    let g = gui.clone();
-                    std::thread::spawn(move || {
-                        operate_exe(&exe, args, g);
-                    });
+                    let args = build_capture_args(comp_level, scale_level, &save_path, true);
+                    spawn_capture(&exe_path, args, gui.clone());
                 } else if event.id == open_config_id {
                     // 菜单：设置
                     operate_exe(&exe_path, "conf", std::collections::HashMap::new());

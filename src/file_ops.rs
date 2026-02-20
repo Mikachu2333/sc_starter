@@ -284,6 +284,48 @@ fn execute_vector_mode(path: &Path, args: Vec<String>, gui: HashMap<String, Stri
     let _ = command.spawn();
 }
 
+/// 构建截图操作的命令行参数
+///
+/// ### 参数
+/// - `comp_level`: 压缩级别
+/// - `scale_level`: 缩放级别
+/// - `save_path`: 保存路径
+/// - `is_long`: 是否为长截图模式
+///
+/// ### 返回值
+/// - `Vec<String>`: 格式化后的命令行参数列表
+pub fn build_capture_args(
+    comp_level: i32,
+    scale_level: i32,
+    save_path: &std::path::PathBuf,
+    is_long: bool,
+) -> Vec<String> {
+    let mut args = Vec::new();
+    if is_long {
+        args.push("--cap:long".to_string());
+    }
+    args.push(format!("--comp:{},{}", comp_level, scale_level));
+    args.push(crate::hotkeys::save_path_get(save_path));
+    args
+}
+
+/// 在新线程中异步启动截图程序
+///
+/// ### 参数
+/// - `exe_path`: 截图程序路径
+/// - `args`: 命令行参数
+/// - `gui`: GUI配置参数
+pub fn spawn_capture(
+    exe_path: &std::path::Path,
+    args: Vec<String>,
+    gui: std::collections::HashMap<String, String>,
+) {
+    let exe = exe_path.to_path_buf();
+    std::thread::spawn(move || {
+        operate_exe(&exe, args, gui);
+    });
+}
+
 pub fn pause<T>(n: T)
 where
     T: Into<f64>,

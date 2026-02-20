@@ -46,8 +46,6 @@ pub fn set_hotkeys(
     let settings_collected = settings_collected.clone();
     let (exit_tx, exit_rx) = mpsc::channel();
 
-    let comp = settings_collected.sundry.comp_level.to_string();
-    let scale = settings_collected.sundry.scale_level.to_string();
     let exe_path = paths.exe_path.clone();
     let save_path = settings_collected.path.save_path.clone();
     let launch = settings_collected.path.launch_app.clone();
@@ -58,8 +56,8 @@ pub fn set_hotkeys(
         let key_groups = settings_collected.keys_collection;
         let mut hkm = HotkeyManager::new();
 
-        let comp_clone = comp.clone();
-        let scale_clone = scale.clone();
+        let comp_val = settings_collected.sundry.comp_level;
+        let scale_val = settings_collected.sundry.scale_level;
         let exe_path_clone = exe_path.clone();
         let save_path_clone = save_path.clone();
         let gui_clone = gui.clone();
@@ -69,11 +67,7 @@ pub fn set_hotkeys(
             key_groups.get("screen_capture").unwrap().vkey,
             &key_groups.get("screen_capture").unwrap().mod_keys,
             move || {
-                let args = [
-                    format!("--comp:{},{}", comp_clone, scale_clone),
-                    save_path_get(&save_path_clone),
-                ]
-                .to_vec();
+                let args = crate::file_ops::build_capture_args(comp_val, scale_val, &save_path_clone, false);
                 operate_exe(&exe_path_clone, args, gui_clone.clone());
             },
         );
@@ -171,8 +165,8 @@ pub fn set_hotkeys(
             };
         }
 
-        let comp_clone = comp.clone();
-        let scale_clone = scale.clone();
+        let comp_val2 = settings_collected.sundry.comp_level;
+        let scale_val2 = settings_collected.sundry.scale_level;
         let exe_path_clone = exe_path.clone();
         let gui_clone = gui.clone();
         let save_path_clone = save_path.clone();
@@ -182,12 +176,7 @@ pub fn set_hotkeys(
             key_groups.get("screen_capture_long").unwrap().vkey,
             &key_groups.get("screen_capture_long").unwrap().mod_keys,
             move || {
-                let args = [
-                    "--cap:long".to_string(),
-                    format!("--comp:{},{}", comp_clone, scale_clone),
-                    save_path_get(&save_path_clone),
-                ]
-                .to_vec();
+                let args = crate::file_ops::build_capture_args(comp_val2, scale_val2, &save_path_clone, true);
                 operate_exe(&exe_path_clone, args, gui_clone.clone());
             },
         );
