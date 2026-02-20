@@ -21,6 +21,8 @@ pub struct TrayManager {
     capture_id: MenuId,
     /// 长截图菜单项 ID
     long_capture_id: MenuId,
+    /// 设置菜单项 ID
+    open_config_id: MenuId,
     /// 退出菜单项 ID
     exit_id: MenuId,
 }
@@ -50,16 +52,20 @@ impl TrayManager {
         let menu_capture = MenuItem::new(if lang { "截图" } else { "Capture" }, true, None);
         let menu_long_capture =
             MenuItem::new(if lang { "长截图" } else { "Long Capture" }, true, None);
+        let menu_open_config = MenuItem::new(if lang { "设置" } else { "Settings" }, true, None);
         let menu_exit = MenuItem::new(if lang { "退出" } else { "Exit" }, true, None);
 
         menu.append(&menu_capture).unwrap();
         menu.append(&menu_long_capture).unwrap();
+        menu.append(&PredefinedMenuItem::separator()).unwrap();
+        menu.append(&menu_open_config).unwrap();
         menu.append(&PredefinedMenuItem::separator()).unwrap();
         menu.append(&menu_exit).unwrap();
 
         // 保存菜单项 ID 用于事件匹配
         let capture_id = menu_capture.id().clone();
         let long_capture_id = menu_long_capture.id().clone();
+        let open_config_id = menu_open_config.id().clone();
         let exit_id = menu_exit.id().clone();
 
         let tray_icon = TrayIconBuilder::new()
@@ -73,8 +79,14 @@ impl TrayManager {
             tray_icon,
             capture_id,
             long_capture_id,
+            open_config_id,
             exit_id,
         }
+    }
+
+    /// 获取设置菜单项的 ID
+    pub fn open_config_id(&self) -> &MenuId {
+        &self.open_config_id
     }
 
     /// 获取截图菜单项的 ID

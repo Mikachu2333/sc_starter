@@ -125,6 +125,7 @@ fn main() {
     // 获取菜单项 ID（用于事件匹配）
     let capture_id = tray_manager.capture_id().clone();
     let long_capture_id = tray_manager.long_capture_id().clone();
+    let open_config_id = tray_manager.open_config_id().clone();
     let exit_id = tray_manager.exit_id().clone();
 
     // 创建事件循环和退出通知代理
@@ -192,6 +193,9 @@ fn main() {
                     std::thread::spawn(move || {
                         operate_exe(&exe, args, g);
                     });
+                } else if event.id == open_config_id {
+                    // 菜单：设置
+                    operate_exe(&exe_path, "conf", std::collections::HashMap::new());
                 } else if event.id == exit_id {
                     // 菜单：退出
                     println!("Menu: Exit requested");
