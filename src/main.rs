@@ -50,7 +50,17 @@ const PROCESS_ID: &str = "78D83F24ADEC8FAF2E4CC1795F166CE4";
 /// 6. 启动主事件循环
 fn main() {
     // 使用系统互斥锁确保程序单例运行，防止多个实例造成快捷键冲突
-    let instance = Box::new(SingleInstance::new(PROCESS_ID).unwrap());
+    let instance = match SingleInstance::new(PROCESS_ID) {
+        Ok(inst) => Box::new(inst),
+        Err(e) => {
+            msgbox::error_msgbox(
+                format!("Failed to create single instance lock: {}", e),
+                "Fatal Error",
+                0,
+            );
+            panic!("SingleInstance creation failed: {}", e);
+        }
+    };
     if !instance.is_single() {
         // 检测到已有实例在运行时，显示提示并退出
         msgbox::error_msgbox("Avoid Multiple.", "", 2);
@@ -69,7 +79,17 @@ fn main() {
     // 1. 主程序目录 (AppData/Local/SC_Starter)
     // 2. 截图程序路径
     // 3. 配置文件路径
-    let binding = directories::BaseDirs::new().unwrap();
+    let binding = match directories::BaseDirs::new() {
+        Some(bd) => bd,
+        None => {
+            msgbox::error_msgbox(
+                "Failed to determine base directories (LOCALAPPDATA missing?).",
+                "Fatal Error",
+                0,
+            );
+            panic!("BaseDirs::new() returned None");
+        }
+    };
     let data_local_dir = binding.data_local_dir();
     let dir_path = PathBuf::from(data_local_dir).join("SC_Starter");
     let path_infos = PathInfos {
@@ -131,7 +151,7 @@ fn main() {
 
         while running_event.load(Ordering::SeqCst) {
             // 处理托盘图标事件（左键双击截图，单次左键不响应）
-            if let Ok(tray_icon::TrayIconEvent::DoubleClick { button, .. }) =
+            while let Ok(tray_icon::TrayIconEvent::DoubleClick { button, .. }) =
                 tray_receiver.try_recv()
             {
                 if button == MouseButton::Left {
@@ -148,7 +168,7 @@ fn main() {
             }
 
             // 处理右键菜单事件
-            if let Ok(event) = menu_receiver.try_recv() {
+            while let Ok(event) = menu_receiver.try_recv() {
                 if event.id == capture_id {
                     // 菜单：截图
                     let args = vec![
@@ -192,7 +212,7 @@ fn main() {
         Mutex::new(Some(handler_hotkeys));
 
     // 启动文件监控，防止核心文件被删除
-    avoid_exe_del(&path_infos);
+    let _file_monitor_running = avoid_exe_del(&path_infos);
 
     // 包装 tray_manager 以便在退出时显式 drop
     let mut tray_manager = Some(tray_manager);

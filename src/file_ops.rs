@@ -71,17 +71,28 @@ pub fn check_res_exist(infos: &PathInfos) -> FileExist {
 /// - 通过CREATE_NO_WINDOW标志隐藏命令行窗口
 /// - 将计算结果与内置的RES_HASH常量进行比较
 fn check_exe_latest(file_path: &Path) -> bool {
-    let hash = std::process::Command::new("certutil")
+    let hash = match std::process::Command::new("certutil")
         .arg("-hashfile")
         .arg(file_path)
         .arg("SHA1")
         .creation_flags(0x08000000) // CREATE_NO_WINDOW - 隐藏命令行窗口
         .output()
-        .expect("Failed to execute command");
+    {
+        Ok(output) => output,
+        Err(e) => {
+            eprintln!("Failed to execute certutil: {}", e);
+            return false;
+        }
+    };
     let hash_value = {
         let original = String::from_utf8_lossy(&hash.stdout);
-        let line = original.lines().nth(1).unwrap();
-        line.trim().to_ascii_uppercase()
+        match original.lines().nth(1) {
+            Some(line) => line.trim().to_ascii_uppercase(),
+            None => {
+                eprintln!("Unexpected certutil output format");
+                return false;
+            }
+        }
     };
     RES_HASH_SHA1.to_ascii_uppercase() == hash_value
 }
@@ -206,31 +217,29 @@ fn execute_string_mode(path: &Path, mode: &str, gui: HashMap<String, String>) {
             std::process::exit(0);
         }
         parm => {
+            let default_empty = String::new();
             println!("parm: {:?}\narg: {:?}\n", parm, gui.clone());
+            let gui_arg = if parm.contains("long") {
+                gui.get("long").unwrap_or(&default_empty)
+            } else {
+                gui.get("normal").unwrap_or(&default_empty)
+            };
             if parm.contains('*') {
                 // 包含多个参数，按'*'分割
                 let temp = parm.split('*').map(String::from);
-                let _ = Command::new(path)
-                    .args(temp)
-                    .arg({
-                        if parm.contains("long") {
-                            gui.get("long").unwrap()
-                        } else {
-                            gui.get("normal").unwrap()
-                        }
-                    })
-                    .spawn();
+                let mut cmd = Command::new(path);
+                cmd.args(temp);
+                if !gui_arg.is_empty() {
+                    cmd.arg(gui_arg);
+                }
+                let _ = cmd.spawn();
             } else {
                 // 单个参数
-                let _ = Command::new(path)
-                    .arg({
-                        if parm.contains("long") {
-                            gui.get("long").unwrap()
-                        } else {
-                            gui.get("normal").unwrap()
-                        }
-                    })
-                    .spawn();
+                let mut cmd = Command::new(path);
+                if !gui_arg.is_empty() {
+                    cmd.arg(gui_arg);
+                }
+                let _ = cmd.spawn();
             }
         }
     }
@@ -319,7 +328,8 @@ pub fn avoid_exe_del(paths: &PathInfos) -> Arc<AtomicBool> {
                     }
                     _ => {
                         // 恢复失败或通道关闭，退出线程
-                        panic!("Critical files missing and recovery failed!");
+                        eprintln!("Critical files missing and recovery failed, stopping monitor.");
+                        break;
                     }
                 }
             }
@@ -334,9 +344,18 @@ pub fn avoid_exe_del(paths: &PathInfos) -> Arc<AtomicBool> {
         while let Ok(()) = rx_lost.recv() {
             println!("Attempting to recover files...");
 
-            // 文件丢失时尝试恢复
-            let files_status = check_res_exist(&paths_clone);
-            unzip_res(&paths_clone, &files_status);
+            // 文件丢失时尝试恢复（使用 catch_unwind 防止级联崩溃）
+            let recover_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let files_status = check_res_exist(&paths_clone);
+                unzip_res(&paths_clone, &files_status);
+            }));
+
+            if recover_result.is_err() {
+                eprintln!("Recovery panicked, sending failure signal.");
+                running.store(false, Ordering::SeqCst);
+                let _ = tx_recovered.send(false);
+                continue;
+            }
 
             // 重新检查恢复结果
             let final_status = check_res_exist(&paths_clone);

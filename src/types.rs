@@ -39,13 +39,13 @@ pub struct Sundry {
     /// 语言（ref: <https://unece.org/trade/cefact/unlocode-code-list-country-and-territory>）
     pub lang: String,
 }
-impl Sundry {
-    pub fn default() -> Self {
+impl Default for Sundry {
+    fn default() -> Self {
         Sundry {
             auto_start: false,
             comp_level: -1,
             scale_level: 100,
-            lang: "CN".to_uppercase()
+            lang: "CN".to_uppercase(),
         }
     }
 }
@@ -59,8 +59,8 @@ pub struct LaunchAppConfig {
     /// 启动应用程序时的命令行参数列表
     pub args: Vec<String>,
 }
-impl LaunchAppConfig {
-    pub fn default() -> Self {
+impl Default for LaunchAppConfig {
+    fn default() -> Self {
         LaunchAppConfig {
             path: PathBuf::from("C:/Windows/System32/notepad.exe"),
             args: Vec::new(),
@@ -77,8 +77,8 @@ pub struct PathConfig {
     /// 外部启动应用程序配置
     pub launch_app: LaunchAppConfig,
 }
-impl PathConfig {
-    pub fn default() -> Self {
+impl Default for PathConfig {
+    fn default() -> Self {
         PathConfig {
             save_path: PathBuf::new(),
             launch_app: LaunchAppConfig::default(),
@@ -106,8 +106,8 @@ pub struct SettingsCollection {
     /// GUI工具栏配置参数，包含normal和long两种模式
     pub gui: HashMap<String, String>,
 }
-impl SettingsCollection {
-    pub fn default() -> Self {
+impl Default for SettingsCollection {
+    fn default() -> Self {
         // 创建一个默认的快捷键配置 HashMap
         let mut default_kvs: KeyVkGroups = HashMap::new();
 
@@ -179,7 +179,8 @@ impl SettingsCollection {
             gui: default_gui,
         }
     }
-
+}
+impl SettingsCollection {
     fn launch_valid(&self) -> bool {
         self.path.launch_app.path.exists()
     }
@@ -221,13 +222,13 @@ impl SettingsCollection {
             if self.launch_valid() {
                 format!(
                     "\n    Launch App Path: {}\n    Launch App Args: <{}>",
-                    &self.path.launch_app.path.to_str().unwrap(),
+                    &self.path.launch_app.path.to_string_lossy(),
                     {
                         let temp = self.path.launch_app.args.join(" ");
                         if temp.trim().is_empty() {
                             "None".to_string()
                         } else {
-                            format!("<{}>", temp)
+                            temp
                         }
                     }
                 )
@@ -249,8 +250,14 @@ impl SettingsCollection {
             self.sundry.auto_start,
             self.sundry.comp_level,
             self.sundry.scale_level,
-            self.gui.get("normal").unwrap(),
-            self.gui.get("long").unwrap(),
+            self.gui
+                .get("normal")
+                .map(|s| s.as_str())
+                .unwrap_or("<unknown>"),
+            self.gui
+                .get("long")
+                .map(|s| s.as_str())
+                .unwrap_or("<unknown>"),
         )
     }
 }
@@ -454,16 +461,38 @@ pub fn resolve_path(path: impl ToString, should_dir: bool) -> PathBuf {
     let path = path.to_string();
     match path.as_ref() {
         "&" => PathBuf::new(),
-        "@" => directories::UserDirs::new()
-            .unwrap()
-            .desktop_dir()
-            .unwrap()
-            .to_path_buf(),
-        "*" => directories::UserDirs::new()
-            .unwrap()
-            .picture_dir()
-            .unwrap()
-            .to_path_buf(),
+        "@" => {
+            match directories::UserDirs::new()
+                .and_then(|u| u.desktop_dir().map(|d| d.to_path_buf()))
+            {
+                Some(p) => p,
+                None => {
+                    eprintln!("Failed to resolve desktop directory, using empty path.");
+                    warn_msgbox(
+                        "Cannot resolve desktop directory, use EMPTY as default.",
+                        "Warn Path Invalid",
+                        5,
+                    );
+                    PathBuf::new()
+                }
+            }
+        }
+        "*" => {
+            match directories::UserDirs::new()
+                .and_then(|u| u.picture_dir().map(|d| d.to_path_buf()))
+            {
+                Some(p) => p,
+                None => {
+                    eprintln!("Failed to resolve pictures directory, using empty path.");
+                    warn_msgbox(
+                        "Cannot resolve pictures directory, use EMPTY as default.",
+                        "Warn Path Invalid",
+                        5,
+                    );
+                    PathBuf::new()
+                }
+            }
+        }
         x => {
             let mut path = PathBuf::from(x.replace("/", "\\"));
             let base_dir = env::current_dir().unwrap_or_default();
@@ -513,8 +542,11 @@ pub fn resolve_path(path: impl ToString, should_dir: bool) -> PathBuf {
                         }
                     }
                 } else if path.starts_with(".") {
-                    let remaining = path.strip_prefix(".\\").ok();
-                    path = base_dir.join(remaining.unwrap());
+                    if let Ok(remaining) = path.strip_prefix(".\\") {
+                        path = base_dir.join(remaining);
+                    } else {
+                        path = base_dir.join(&path);
+                    }
                 } else {
                     path = base_dir.join(path);
                 }

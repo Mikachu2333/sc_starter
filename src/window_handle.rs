@@ -99,6 +99,7 @@ pub unsafe fn set_window_topmost_by_pid(process_id: u32) {
 /// - 比较进程名称（不区分大小写）
 /// - 自动处理资源清理
 pub unsafe fn is_process_running(process_name: impl ToString) -> bool {
+    let target_name = process_name.to_string().to_lowercase();
     // 创建进程快照
     let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if snapshot == INVALID_HANDLE_VALUE {
@@ -130,7 +131,7 @@ pub unsafe fn is_process_running(process_name: impl ToString) -> bool {
                 .to_lowercase();
 
             // 比较进程名
-            if exe_name == process_name.to_string().to_lowercase() {
+            if exe_name == target_name {
                 found = true;
                 break;
             }

@@ -87,7 +87,7 @@ startup = false
 # 缩放：1%-100%，（模糊->清晰）
 # Compression level: 0-10 (clear->blur), -1 for default
 # Scale: 1%-100% (blur->clear)
-comp_level = -1
+comp_level  = -1
 scale_ratio = 100
 
 # 语言，中文为 CN，其它请参考联合国的地区代码表 https://unece.org/trade/cefact/unlocode-code-list-country-and-territory

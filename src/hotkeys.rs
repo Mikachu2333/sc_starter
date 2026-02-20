@@ -268,7 +268,7 @@ pub fn save_path_get(save_path: &PathBuf) -> String {
     } else {
         format!(
             r#"--path:"{}""#,
-            save_path.to_str().unwrap().replace("\\", "/")
+            save_path.to_string_lossy().replace("\\", "/")
         )
     }
 }

@@ -181,13 +181,13 @@ fn get_path_from_config(default: PathConfig, config: &Value) -> PathConfig {
             let str_save_path = if let Some(dir) = section.get("dir").and_then(|v| v.as_str()) {
                 handle_str_path(dir)
             } else {
-                default.save_path.to_str().unwrap().to_string()
+                default.save_path.to_string_lossy().to_string()
             };
             let str_launch_path =
                 if let Some(launch) = section.get("launch_app_path").and_then(|v| v.as_str()) {
                     handle_str_path(launch)
                 } else {
-                    default.launch_app.path.to_str().unwrap().to_string()
+                    default.launch_app.path.to_string_lossy().to_string()
                 };
             let str_launch_args =
                 if let Some(launch) = section.get("launch_app_args").and_then(|v| v.as_str()) {
@@ -199,8 +199,8 @@ fn get_path_from_config(default: PathConfig, config: &Value) -> PathConfig {
             (str_save_path, str_launch_path, str_launch_args)
         }
         None => (
-            default.save_path.to_str().unwrap().to_string(),
-            default.launch_app.path.to_str().unwrap().to_string(),
+            default.save_path.to_string_lossy().to_string(),
+            default.launch_app.path.to_string_lossy().to_string(),
             default.launch_app.args,
         ),
     };
@@ -327,23 +327,41 @@ fn get_gui_config(default: HashMap<String, String>, config: &Value) -> HashMap<S
 /// - 用于控制程序开机自启动行为
 pub fn set_startup(renew: bool, startup_dir: &std::path::Path, self_path: &PathBuf) {
     // 生成快捷方式的名称，基于当前可执行文件的主名称
-    let lnk_name = format!("{}.lnk", self_path.file_stem().unwrap().to_str().unwrap());
+    let lnk_name = match self_path.file_stem().and_then(|s| s.to_str()) {
+        Some(name) => format!("{}.lnk", name),
+        None => {
+            eprintln!("Failed to get executable file stem for shortcut name.");
+            return;
+        }
+    };
     // 构建启动目录中快捷方式的完整路径
     let startup_path = startup_dir.join(lnk_name);
     //println!("{}", startup_path.display());
 
     // 如果快捷方式已经存在，则尝试删除它
     if startup_path.exists() {
-        std::fs::remove_file(&startup_path).expect("Failed to remove old shortcut.");
-        println!("Lnk Removed.");
+        match std::fs::remove_file(&startup_path) {
+            Ok(_) => println!("Lnk Removed."),
+            Err(e) => {
+                eprintln!("Failed to remove old shortcut: {}", e);
+                return;
+            }
+        }
     }
 
     // 如果`renew`参数为真，则尝试创建新的快捷方式
     if renew {
-        mslnk::ShellLink::new(self_path)
-            .unwrap()
-            .create_lnk(startup_path)
-            .unwrap();
-        println!("Lnk Created Successfully.");
+        match mslnk::ShellLink::new(self_path) {
+            Ok(sl) => {
+                if let Err(e) = sl.create_lnk(&startup_path) {
+                    eprintln!("Failed to create startup shortcut: {}", e);
+                } else {
+                    println!("Lnk Created Successfully.");
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to create ShellLink: {}", e);
+            }
+        }
     }
 }
