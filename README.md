@@ -10,6 +10,7 @@ A launcher and manager for ScreenCapture with global hotkeys and tray integratio
 
 - **内置截图程序** / Embedded ScreenCapture exe - 无需额外安装，一键运行
 - **全局快捷键** / Global Hotkeys - 系统级快捷键，任意位置触发
+- **托盘菜单** / Tray Menu - 快速访问截图功能和配置选项
 - **启动应用程序** / Launch Applications - 快速启动常用程序，支持进程管理和窗口置顶
 - **路径管理** / Path Management - 支持多种保存方式和自定义路径
 - **文件保护机制** / File Protection - 自动监控和恢复核心文件
@@ -19,8 +20,7 @@ A launcher and manager for ScreenCapture with global hotkeys and tray integratio
 ### 托盘操作 / Tray Operations
 
 - **左键双击** / Left Double Click: 普通截图 / Normal screenshot
-- **右键单击** / Right Double Click: 长截图 / Long screenshot  
-- **中键单击** / Middle Click: 退出程序 / Exit application
+- **右键单击** / Right Click: 唤出菜单 / Show menu
 
 ### 自启动支持 / Auto Startup
 
@@ -33,14 +33,14 @@ A launcher and manager for ScreenCapture with global hotkeys and tray integratio
 
 #### 默认快捷键 / Default Hotkeys
 
-| 功能 / Function          | 快捷键 / Hotkey      | 说明 / Description                                   |
-| ------------------------ | -------------------- | ---------------------------------------------------- |
-| 普通截图 / Screenshot    | `Ctrl+Win+Alt+P`     | 矩形区域截图 / Rectangular area capture              |
-| 长截图 / Long Screenshot | `Ctrl+Win+Alt+L`     | 滚动截图 / Scrolling capture                         |
-| 钉图 / Pin Image         | `Ctrl+Win+Alt+T`     | 将剪贴板图片钉到屏幕 / Pin clipboard image to screen |
+| 功能 / Function          | 快捷键 / Hotkey      | 说明 / Description                                     |
+| ------------------------ | -------------------- | ------------------------------------------------------ |
+| 普通截图 / Screenshot    | `Ctrl+Win+Alt+P`     | 矩形区域截图 / Rectangular area capture                |
+| 长截图 / Long Screenshot | `Ctrl+Win+Alt+L`     | 滚动截图 / Scrolling capture                           |
+| 钉图 / Pin Image         | `Ctrl+Win+Alt+T`     | 将剪贴板图片钉到屏幕 / Pin clipboard image to screen   |
 | 启动应用 / Launch App    | `Ctrl+Win+Alt+A`     | 启动配置的外部应用程序 / Launch configured application |
-| 打开配置 / Open Config   | `Ctrl+Win+Alt+O`     | 打开配置文件编辑 / Open config file for editing      |
-| 退出程序 / Exit          | `Win+Ctrl+Shift+Esc` | 完全退出程序 / Exit application completely           |
+| 打开配置 / Open Config   | `Ctrl+Win+Alt+O`     | 打开配置文件编辑 / Open config file for editing        |
+| 退出程序 / Exit          | `Win+Ctrl+Shift+Esc` | 完全退出程序 / Exit application completely             |
 
 ### 2. 配置自定义 / Configuration Customization
 
@@ -68,7 +68,7 @@ function = "Modifier1+Modifier2+...@TargetKey"
 #### 支持的修饰键 / Supported Modifiers
 
 - `Win` / `Windows` / `Super`: Windows键
-- `Ctrl` / `Control`: Ctrl键  
+- `Ctrl` / `Control`: Ctrl键
 - `Alt`: Alt键
 - `Shift`: Shift键
 
@@ -82,6 +82,8 @@ function = "Modifier1+Modifier2+...@TargetKey"
 #### 配置要求 / Requirements
 
 - **至少两个修饰键** / Minimum 2 modifiers required
+  - `Fn` 系列快捷键可以直接使用，配置文件形式类似 `@F7`
+  - `Fn` keys can be used directly, config format like `@F7`
 - **避免系统快捷键冲突** / Avoid system hotkey conflicts
 
 ### [path] 路径配置 / Path Configuration
@@ -119,22 +121,23 @@ function = "Modifier1+Modifier2+...@TargetKey"
 
 #### 路径格式要求 / Path Format Requirements
 
-- 使用正斜杠: `D:/Screenshots`  
+- 使用正斜杠: `D:/Screenshots`
 - 使用双反斜杠: `D:\\Screenshots`
-- 不要使用单反斜杠: `D:\Screenshots`
+- **不要**使用单反斜杠: `D:\Screenshots`
 
 ### [sundry] 杂项 / Advanced Settings
 
 - **auto_start**: 开机自启动 (`true`/`false`)
 - **comp_level**: 压缩级别 (0-100)
 - **scale_level**: 缩放级别 (0-100)
+- **lang**: 语言设置（中文 -> 1，En -> 0）
 
 ### GUI 工具栏配置 / GUI Toolbar Configuration
 
 **可用工具 / Available Tools:**
 
 - `rect`: 矩形工具 / Rectangle tool
-- `ellipse`: 椭圆工具 / Ellipse tool  
+- `ellipse`: 椭圆工具 / Ellipse tool
 - `arrow`: 箭头工具 / Arrow tool
 - `number`: 序号工具 / Number tool
 - `line`: 直线工具 / Line tool
@@ -171,8 +174,10 @@ function = "Modifier1+Modifier2+...@TargetKey"
 # 快捷键配置说明 / Hotkey Configuration:
 # 1. 格式：控制键+控制键+...@实际键
 # 1. Format: Modifier+Modifier+...@Key
-# 2. 至少需要两个控制键，避免冲突
-# 2. At least two modifiers required to avoid conflicts
+# 2. 至少需要两个控制键，避免冲突，Fn系列可以不需要控制键
+#    注：Fn键配置类似 `@F1`
+# 2. At least two modifiers required to avoid conflicts, Fn series keys may not require modifiers
+#    Note: Fn key configuration is like `@F1`
 # 3. 支持的控制键 / Supported modifiers:
 #    - WIN/WINDOWS/SUPER
 #    - CTRL/CONTROL
@@ -181,6 +186,7 @@ function = "Modifier1+Modifier2+...@TargetKey"
 # 4. 支持的实际键 / Supported keys:
 #    - A-Z：字母键 / Letters
 #    - 0-9：数字键 / Numbers
+#    - F1-F24：Fn键 / Fn keys
 #    - VK_系列：特殊键 / Special keys
 
 # 控制截屏 / Screen capture
@@ -237,8 +243,12 @@ startup = false
 # 缩放：1%-100%，（模糊->清晰）
 # Compression level: 0-10 (clear->blur), -1 for default
 # Scale: 1%-100% (blur->clear)
-comp_level = -1
+comp_level  = -1
 scale_ratio = 100
+
+# 语言，中文为 1，英文为 0
+# Language, Chinese is 1, English is 0
+lang = 1
 
 [gui]
 # GUI配置，默认全部启用
