@@ -120,7 +120,7 @@ fn main() {
     set_startup(settings.sundry.auto_start, &temp, &self_path);
 
     // 创建托盘图标管理器（含右键菜单：截图、长截图、退出）
-    let tray_manager = TrayManager::new(&settings.sundry.lang);
+    let tray_manager = TrayManager::new(settings.sundry.lang);
 
     // 获取菜单项 ID（用于事件匹配）
     let capture_id = tray_manager.capture_id().clone();

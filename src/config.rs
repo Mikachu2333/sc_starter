@@ -262,13 +262,13 @@ fn get_sundry_settings(default: Sundry, config: &Value) -> Sundry {
         .unwrap_or(default.scale_level);
     let lang_code = sundry_section
         .and_then(|t| t.get("lang"))
-        .and_then(|v| v.as_str())
-        .unwrap_or(&default.lang);
+        .and_then(|v| v.as_integer())
+        .unwrap_or(-1);
     Sundry {
         auto_start: startup_bool,
         comp_level: comp,
         scale_level: scale,
-        lang: lang_code.to_string(),
+        lang: lang_code == 1,
     }
 }
 

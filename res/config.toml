@@ -90,11 +90,9 @@ startup = false
 comp_level  = -1
 scale_ratio = 100
 
-# 语言，中文为 CN，其它请参考联合国的地区代码表 https://unece.org/trade/cefact/unlocode-code-list-country-and-territory
-# 缺失的语言将默认使用英文
-# Language, Please use "UN/LOCODE Code List by Country and Territory" as the following hyperlink shows
-# Languages that are missing will default to English
-lang = "US"
+# 语言，中文为 1，英文为 0
+# Language, Chinese is 1, English is 0
+lang = 1
 
 [gui]
 # GUI配置，默认全部启用

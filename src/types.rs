@@ -36,8 +36,8 @@ pub struct Sundry {
     pub comp_level: i32,
     /// 图像缩放比例（1-100，100表示原始大小）
     pub scale_level: i32,
-    /// 语言（ref: <https://unece.org/trade/cefact/unlocode-code-list-country-and-territory>）
-    pub lang: String,
+    /// 语言（true: CN, false: EN）
+    pub lang: bool,
 }
 impl Default for Sundry {
     fn default() -> Self {
@@ -45,7 +45,7 @@ impl Default for Sundry {
             auto_start: false,
             comp_level: -1,
             scale_level: 100,
-            lang: "CN".to_uppercase(),
+            lang: true,
         }
     }
 }

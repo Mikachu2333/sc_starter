@@ -25,29 +25,6 @@ pub struct TrayManager {
     exit_id: MenuId,
 }
 
-struct MenuTexts {
-    capture: String,
-    long_capture: String,
-    exit: String,
-}
-impl MenuTexts {
-    fn get(lang: &str) -> Self {
-        match lang.to_uppercase().as_str() {
-            "CN" => Self {
-                capture: "截图".to_string(),
-                long_capture: "长截图".to_string(),
-                exit: "退出".to_string(),
-            },
-            "EN" => Self {
-                capture: "Capture".to_string(),
-                long_capture: "Long Capture".to_string(),
-                exit: "Exit".to_string(),
-            },
-            _ => Self::get("EN"),
-        }
-    }
-}
-
 impl TrayManager {
     /// 创建新的托盘管理器实例
     ///
@@ -63,17 +40,17 @@ impl TrayManager {
     /// ### Panics
     /// - 如果嵌入的图标数据无效，会panic
     /// - 如果构建托盘图标失败，会panic
-    pub fn new(lang: &str) -> Self {
+    pub fn new(lang: bool) -> Self {
         // 创建托盘图标
         let icon_data = include_bytes!("../logo_raw") as &[u8];
         let icon = Icon::from_rgba(icon_data.to_vec(), 256, 256).expect("Embedded icon is invalid");
 
         // 创建右键菜单（根据语言设置显示对应文本）
         let menu = Menu::new();
-        let menu_texts = MenuTexts::get(lang);
-        let menu_capture = MenuItem::new(&menu_texts.capture, true, None);
-        let menu_long_capture = MenuItem::new(&menu_texts.long_capture, true, None);
-        let menu_exit = MenuItem::new(&menu_texts.exit, true, None);
+        let menu_capture = MenuItem::new(if lang { "截图" } else { "Capture" }, true, None);
+        let menu_long_capture =
+            MenuItem::new(if lang { "长截图" } else { "Long Capture" }, true, None);
+        let menu_exit = MenuItem::new(if lang { "退出" } else { "Exit" }, true, None);
 
         menu.append(&menu_capture).unwrap();
         menu.append(&menu_long_capture).unwrap();
