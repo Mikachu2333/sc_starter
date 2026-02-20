@@ -151,7 +151,7 @@ where
     T: OperateMode,
 {
     mode.execute(path, gui);
-    pause(1.5);
+    pause(1);
 }
 
 /// 操作模式trait，定义不同类型的执行方式
@@ -375,7 +375,7 @@ pub fn avoid_exe_del(paths: &PathInfos) -> Arc<AtomicBool> {
                     }
                 }
             }
-            pause(5);
+            pause(3);
         }
     });
 

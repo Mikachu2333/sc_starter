@@ -72,6 +72,7 @@ impl TrayManager {
             .with_tooltip(format!("SC_Starter v{}\nRES v{}", PKG_VERSION, RES_VERSION))
             .with_icon(icon)
             .with_menu(Box::new(menu))
+            .with_menu_on_left_click(false)
             .build()
             .unwrap();
 
