@@ -105,7 +105,7 @@ fn get_kvs_from_config(
             // 提取修饰键和主键
             let parts: Vec<&str> = custom_hotkey.split('@').collect();
             if DEBUG {
-                dbg!(&custom_hotkey, &parts);
+                dbg!(&custom_hotkey);
             }
             if parts.len() != 2 {
                 // 格式错误，使用默认值

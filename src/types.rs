@@ -14,6 +14,9 @@ pub static PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub static PKG_BUILD_TIME: &str = env!("VERGEN_BUILD_TIMESTAMP");
 pub static DEBUG: bool = cfg!(debug_assertions);
 
+pub const T_SEC_1_100: std::time::Duration = std::time::Duration::from_millis(10);
+pub const T_SEC_1_2: std::time::Duration = std::time::Duration::from_millis(500);
+
 /// 文件存在状态结构体
 /// 用于跟踪主程序所需的关键文件状态和版本信息
 #[derive(Clone, Copy, Debug, Default)]

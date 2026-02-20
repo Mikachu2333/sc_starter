@@ -196,9 +196,6 @@ fn execute_string_mode(path: &Path, mode: &str, gui: HashMap<String, String>) {
         "pin" => {
             let _ = Command::new(path).arg("--pin:clipboard").spawn();
         }
-        "exit" => {
-            println!("Preparing to exit...");
-        }
         "conf" => {
             match Command::new("notepad.exe").arg(path).spawn() {
                 Ok(_) => (),

@@ -21,9 +21,6 @@ use std::{
 use tao::event_loop::EventLoopProxy;
 use windows_hotkeys::{singlethreaded::HotkeyManager, HotkeyManagerImpl};
 
-const T_SEC_1_100: std::time::Duration = std::time::Duration::from_millis(10);
-const T_SEC_1_2: std::time::Duration = std::time::Duration::from_millis(500);
-
 /// 设置全局快捷键并返回事件发送器
 ///
 /// ### 参数

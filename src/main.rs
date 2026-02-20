@@ -30,7 +30,6 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
     },
-    time::Duration,
 };
 use tao::event_loop::EventLoop;
 use tray_icon::MouseButton;
@@ -142,50 +141,7 @@ fn main() {
     let comp_level = settings.sundry.comp_level;
     let scale_level = settings.sundry.scale_level;
 
-    // 托盘事件和菜单事件统一处理线程
-    // 使用轮询方式处理托盘图标点击和右键菜单事件
-    let running_event = running.clone();
-    let proxy_event = proxy.clone();
-    let _event_handler = std::thread::spawn(move || {
-        let tray_receiver = tray_icon::TrayIconEvent::receiver().to_owned();
-        let menu_receiver = tray_icon::menu::MenuEvent::receiver().to_owned();
-
-        while running_event.load(Ordering::SeqCst) {
-            // 处理托盘图标事件（左键双击截图，单次左键不响应）
-            while let Ok(tray_icon::TrayIconEvent::DoubleClick { button, .. }) =
-                tray_receiver.try_recv()
-            {
-                if button == MouseButton::Left {
-                    let args = build_capture_args(comp_level, scale_level, &save_path, false);
-                    spawn_capture(&exe_path, args, gui.clone());
-                }
-            }
-
-            // 处理右键菜单事件
-            while let Ok(event) = menu_receiver.try_recv() {
-                if event.id == capture_id {
-                    // 菜单：截图
-                    let args = build_capture_args(comp_level, scale_level, &save_path, false);
-                    spawn_capture(&exe_path, args, gui.clone());
-                } else if event.id == long_capture_id {
-                    // 菜单：长截图
-                    let args = build_capture_args(comp_level, scale_level, &save_path, true);
-                    spawn_capture(&exe_path, args, gui.clone());
-                } else if event.id == open_config_id {
-                    // 菜单：设置
-                    operate_exe(&exe_path, "conf", std::collections::HashMap::new());
-                } else if event.id == exit_id {
-                    // 菜单：退出
-                    println!("Menu: Exit requested");
-                    running_event.store(false, Ordering::SeqCst);
-                    proxy_event.send_event(()).ok();
-                    break;
-                }
-            }
-
-            std::thread::sleep(Duration::from_millis(10));
-        }
-    });
+    let conf_path = path_infos.conf_path.clone();
 
     // 设置全局热键并获取控制句柄
     let (handler_hotkeys, hotkey_exit_tx) =
@@ -201,10 +157,50 @@ fn main() {
 
     // 主事件循环
     event_loop.run(move |event, _, control_flow| {
-        *control_flow = tao::event_loop::ControlFlow::Wait;
+        // 定时唤醒，用于轮询托盘和菜单事件
+        *control_flow =
+            tao::event_loop::ControlFlow::WaitUntil(std::time::Instant::now() + T_SEC_1_100);
 
-        // 检查是否收到退出信号（来自菜单退出或热键退出）
-        let should_exit = matches!(event, tao::event::Event::UserEvent(()));
+        // 处理托盘图标事件（左键双击截图）
+        while let Ok(tray_event) = tray_icon::TrayIconEvent::receiver().try_recv() {
+            if let tray_icon::TrayIconEvent::DoubleClick {
+                button: MouseButton::Left,
+                ..
+            } = tray_event
+            {
+                let args = build_capture_args(comp_level, scale_level, &save_path, false);
+                spawn_capture(&exe_path, args, gui.clone());
+            }
+        }
+
+        // 处理右键菜单事件
+        while let Ok(menu_event) = tray_icon::menu::MenuEvent::receiver().try_recv() {
+            if menu_event.id == capture_id {
+                // 菜单：截图
+                println!("Menu Event: Capture");
+                let args = build_capture_args(comp_level, scale_level, &save_path, false);
+                spawn_capture(&exe_path, args, gui.clone());
+            } else if menu_event.id == long_capture_id {
+                // 菜单：长截图
+                println!("Menu Event: Long Capture");
+                let args = build_capture_args(comp_level, scale_level, &save_path, true);
+                spawn_capture(&exe_path, args, gui.clone());
+            } else if menu_event.id == open_config_id {
+                // 菜单：设置
+                println!("Menu Event: Open Config");
+                operate_exe(&conf_path, "conf", std::collections::HashMap::new());
+            } else if menu_event.id == exit_id {
+                // 菜单：退出
+                println!("Menu Event: Exit requested");
+                running.store(false, Ordering::SeqCst);
+                proxy.send_event(()).ok();
+            }
+        }
+
+        // 检查退出条件（来自菜单退出或热键退出）
+        let from_user_event = matches!(event, tao::event::Event::UserEvent(()));
+        let running_now = running.load(Ordering::SeqCst);
+        let should_exit = from_user_event || !running_now;
 
         if should_exit {
             // 通知所有线程退出
@@ -213,15 +209,20 @@ fn main() {
             // 清理热键线程
             if let Some(handle) = handler_hotkeys.lock().unwrap().take() {
                 hotkey_exit_tx.send(()).ok();
-                if handle.join().is_ok() {
-                    println!("Hotkey handler thread terminated.");
+                let wait_deadline =
+                    std::time::Instant::now() + std::time::Duration::from_millis(300);
+                while !handle.is_finished() && std::time::Instant::now() < wait_deadline {
+                    std::thread::sleep(T_SEC_1_100);
+                }
+
+                if handle.is_finished() {
+                    handle.join().ok();
                 }
             }
 
             // 显式 drop 托盘管理器以清理系统托盘图标
             if let Some(tm) = tray_manager.take() {
                 drop(tm);
-                println!("Tray manager cleaned up.");
             }
 
             *control_flow = tao::event_loop::ControlFlow::Exit;
