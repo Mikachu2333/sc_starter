@@ -26,12 +26,14 @@ use crate::types::*;
 use single_instance::SingleInstance;
 use std::{
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    time::Duration,
 };
 use tao::event_loop::EventLoop;
-use tray_icon::{MouseButton, TrayIconEvent};
-// 新增：用于节流的时间工具
-use std::time::{Duration, Instant};
+use tray_icon::MouseButton;
 
 /// 随机生成的GUID，用于程序单例检测
 /// 防止程序多开造成快捷键冲突
@@ -59,7 +61,7 @@ fn main() {
     println!(
         "Version:\t{}\nBuild Time:\t{}",
         PKG_VERSION,
-        &PKG_BUILD_TIME[..=18]
+        PKG_BUILD_TIME.get(..=18).unwrap_or(PKG_BUILD_TIME)
     );
 
     // 初始化路径信息
@@ -97,125 +99,130 @@ fn main() {
     };
     set_startup(settings.sundry.auto_start, &temp, &self_path);
 
-    // 创建托盘图标管理器
-    let tray_manager = TrayManager::new();
+    // 创建托盘图标管理器（含右键菜单：截图、长截图、退出）
+    let tray_manager = TrayManager::new(&settings.sundry.lang);
 
-    // 获取托盘图标事件接收器
-    let event_receiver = tray_manager.run();
+    // 获取菜单项 ID（用于事件匹配）
+    let capture_id = tray_manager.capture_id().clone();
+    let long_capture_id = tray_manager.long_capture_id().clone();
+    let exit_id = tray_manager.exit_id().clone();
 
-    // 创建事件循环和状态管理
+    // 创建事件循环和退出通知代理
     let event_loop = EventLoop::new();
-    let running = Arc::new(Mutex::new(true)); // 程序运行状态标志
-    let running_clone = running.clone();
+    let proxy = event_loop.create_proxy();
 
-    // 托盘事件处理线程
-    // 处理用户与托盘图标的交互，如点击和双击事件
+    // 程序运行状态标志（原子操作，线程安全）
+    let running = Arc::new(AtomicBool::new(true));
+
+    // 准备事件处理所需的数据
     let exe_path = path_infos.exe_path.clone();
     let save_path = settings.path.save_path.clone();
     let gui = settings.gui.clone();
+    let comp_level = settings.sundry.comp_level;
+    let scale_level = settings.sundry.scale_level;
 
-    let event_handler = std::thread::spawn(move || {
-        let debounce = Duration::from_secs(1);
-        // 确保第一次右键不会被当成抖动忽略
-        let mut last_right_long = Instant::now() - debounce;
+    // 托盘事件和菜单事件统一处理线程
+    // 使用轮询方式处理托盘图标点击和右键菜单事件
+    let running_event = running.clone();
+    let proxy_event = proxy.clone();
+    let _event_handler = std::thread::spawn(move || {
+        let tray_receiver = tray_icon::TrayIconEvent::receiver().to_owned();
+        let menu_receiver = tray_icon::menu::MenuEvent::receiver().to_owned();
 
-        while let Ok(event) = event_receiver.recv() {
-            // 检查程序是否应该退出
-            if !*running_clone.lock().unwrap() {
-                break;
-            }
-            let gui_clone = gui.clone();
-
-            match event {
-                TrayIconEvent::DoubleClick { button, .. } => {
-                    if button == MouseButton::Left {
-                        // 左键双击：触发普通截图
-                        let args = [
-                            format!(
-                                "--comp:{},{}",
-                                settings.sundry.comp_level, settings.sundry.scale_level
-                            ),
-                            save_path_get(&save_path),
-                        ]
-                        .to_vec();
-                        // 放到后台线程，避免阻塞事件处理
-                        let exe_path_clone = exe_path.clone();
-                        let gui_for_thread = gui_clone.clone();
-                        std::thread::spawn(move || {
-                            operate_exe(&exe_path_clone, args, gui_for_thread);
-                        });
-                    }
+        while running_event.load(Ordering::SeqCst) {
+            // 处理托盘图标事件（左键双击截图，单次左键不响应）
+            if let Ok(tray_icon::TrayIconEvent::DoubleClick { button, .. }) =
+                tray_receiver.try_recv()
+            {
+                if button == MouseButton::Left {
+                    let args = vec![
+                        format!("--comp:{},{}", comp_level, scale_level),
+                        save_path_get(&save_path),
+                    ];
+                    let exe = exe_path.clone();
+                    let g = gui.clone();
+                    std::thread::spawn(move || {
+                        operate_exe(&exe, args, g);
+                    });
                 }
-                // 单击事件处理
-                TrayIconEvent::Click {
-                    button,
-                    button_state,
-                    ..
-                } => {
-                    if button_state == tray_icon::MouseButtonState::Up {
-                        if button == MouseButton::Middle {
-                            // 中键单击：退出
-                            *running_clone.lock().unwrap() = false;
-                            operate_exe(&PathBuf::new(), "exit", std::collections::HashMap::new());
-                            break;
-                        } else if button == MouseButton::Right {
-                            // 右键单击：触发截长屏（加入节流，避免短时间内重复触发）
-                            let now = Instant::now();
-                            if now.duration_since(last_right_long) >= debounce {
-                                last_right_long = now;
-                                let args = [
-                                    "--cap:long".to_string(),
-                                    format!(
-                                        "--comp:{},{}",
-                                        settings.sundry.comp_level, settings.sundry.scale_level
-                                    ),
-                                    save_path_get(&save_path),
-                                ]
-                                .to_vec();
-                                // 放到后台线程，避免阻塞导致“抖动事件”延迟处理而误通过
-                                let exe_path_clone = exe_path.clone();
-                                let gui_for_thread = gui_clone.clone();
-                                std::thread::spawn(move || {
-                                    operate_exe(&exe_path_clone, args, gui_for_thread);
-                                });
-                            } else {
-                                // 忽略抖动
-                            }
-                        }
-                    }
-                }
-                _ => {}
             }
+
+            // 处理右键菜单事件
+            if let Ok(event) = menu_receiver.try_recv() {
+                if event.id == capture_id {
+                    // 菜单：截图
+                    let args = vec![
+                        format!("--comp:{},{}", comp_level, scale_level),
+                        save_path_get(&save_path),
+                    ];
+                    let exe = exe_path.clone();
+                    let g = gui.clone();
+                    std::thread::spawn(move || {
+                        operate_exe(&exe, args, g);
+                    });
+                } else if event.id == long_capture_id {
+                    // 菜单：长截图
+                    let args = vec![
+                        "--cap:long".to_string(),
+                        format!("--comp:{},{}", comp_level, scale_level),
+                        save_path_get(&save_path),
+                    ];
+                    let exe = exe_path.clone();
+                    let g = gui.clone();
+                    std::thread::spawn(move || {
+                        operate_exe(&exe, args, g);
+                    });
+                } else if event.id == exit_id {
+                    // 菜单：退出
+                    println!("Menu: Exit requested");
+                    running_event.store(false, Ordering::SeqCst);
+                    proxy_event.send_event(()).ok();
+                    break;
+                }
+            }
+
+            std::thread::sleep(Duration::from_millis(10));
         }
     });
 
-    // 设置全局热键并获取事件处理器
-    let (handler_hotkeys, hotkey_exit_tx) = set_hotkeys(&path_infos, &settings);
-    // 使用 Arc<Mutex<Option<>>> 包装热键处理线程，便于安全地在多线程间共享和清理
-    let handler_hotkeys: Arc<Mutex<Option<std::thread::JoinHandle<()>>>> =
-        Arc::new(Mutex::new(Some(handler_hotkeys)));
+    // 设置全局热键并获取控制句柄
+    let (handler_hotkeys, hotkey_exit_tx) =
+        set_hotkeys(&path_infos, &settings, running.clone(), proxy.clone());
+    let handler_hotkeys: Mutex<Option<std::thread::JoinHandle<()>>> =
+        Mutex::new(Some(handler_hotkeys));
 
     // 启动文件监控，防止核心文件被删除
     avoid_exe_del(&path_infos);
 
+    // 包装 tray_manager 以便在退出时显式 drop
+    let mut tray_manager = Some(tray_manager);
+
     // 主事件循环
-    event_loop.run(move |_event, _, control_flow| {
-        // 一旦托盘事件发生，会通过 UserEvent 唤醒到这里
-        if !*running.lock().unwrap() || event_handler.is_finished() {
+    event_loop.run(move |event, _, control_flow| {
+        *control_flow = tao::event_loop::ControlFlow::Wait;
+
+        // 检查是否收到退出信号（来自菜单退出或热键退出）
+        let should_exit = matches!(event, tao::event::Event::UserEvent(()));
+
+        if should_exit {
+            // 通知所有线程退出
+            running.store(false, Ordering::SeqCst);
+
             // 清理热键线程
-            if let Some(handle) = Arc::clone(&handler_hotkeys).lock().unwrap().take() {
-                hotkey_exit_tx.send(()).ok(); // 发送退出信号
+            if let Some(handle) = handler_hotkeys.lock().unwrap().take() {
+                hotkey_exit_tx.send(()).ok();
                 if handle.join().is_ok() {
                     println!("Hotkey handler thread terminated.");
                 }
             }
 
-            // 清理托盘图标
-            let _ = &tray_manager; // 触发 Drop trait 实现
+            // 显式 drop 托盘管理器以清理系统托盘图标
+            if let Some(tm) = tray_manager.take() {
+                drop(tm);
+                println!("Tray manager cleaned up.");
+            }
 
-            *control_flow = tao::event_loop::ControlFlow::Exit; // 退出事件循环
-        } else {
-            *control_flow = tao::event_loop::ControlFlow::Wait;
+            *control_flow = tao::event_loop::ControlFlow::Exit;
         }
     });
 }

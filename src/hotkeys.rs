@@ -11,10 +11,14 @@ use crate::window_handle::{is_process_running, set_window_topmost_by_pid};
 use crate::{file_ops::operate_exe, msgbox::error_msgbox};
 use std::{
     collections::HashMap,
-    sync::{mpsc, Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Arc, Mutex,
+    },
     thread,
     {path::PathBuf, thread::JoinHandle},
 };
+use tao::event_loop::EventLoopProxy;
 use windows_hotkeys::{singlethreaded::HotkeyManager, HotkeyManagerImpl};
 
 const T_SEC_1_100: std::time::Duration = std::time::Duration::from_millis(10);
@@ -36,6 +40,8 @@ const T_SEC_1_2: std::time::Duration = std::time::Duration::from_millis(500);
 pub fn set_hotkeys(
     paths: &PathInfos,
     settings_collected: &SettingsCollection,
+    running: Arc<AtomicBool>,
+    exit_proxy: EventLoopProxy<()>,
 ) -> (JoinHandle<()>, mpsc::Sender<()>) {
     let settings_collected = settings_collected.clone();
     let (exit_tx, exit_rx) = mpsc::channel();
@@ -220,11 +226,15 @@ pub fn set_hotkeys(
             panic!("{}", &temp);
         }
 
-        // 注册退出快捷键
+        // 注册退出快捷键（通过通知主循环退出，而非直接终止进程）
         let hotkey_exit = hkm.register(
             key_groups.get("exit").unwrap().vkey,
             &key_groups.get("exit").unwrap().mod_keys,
-            move || std::process::exit(0),
+            move || {
+                println!("Hotkey: Exit requested");
+                running.store(false, Ordering::SeqCst);
+                exit_proxy.send_event(()).ok();
+            },
         );
         if hotkey_exit.is_err() {
             let temp = "Failed reg Hotkey exit.";

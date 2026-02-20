@@ -187,8 +187,6 @@ fn execute_string_mode(path: &Path, mode: &str, gui: HashMap<String, String>) {
         }
         "exit" => {
             println!("Preparing to exit...");
-            msgbox::info_msgbox("Exit", "", 2);
-            std::process::exit(0)
         }
         "conf" => {
             match Command::new("notepad.exe").arg(path).spawn() {
