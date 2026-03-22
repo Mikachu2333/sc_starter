@@ -47,7 +47,15 @@ extern "system" {
     ) -> i32;
     fn FindWindowW(lpClassName: LPCWSTR, lpWindowName: LPCWSTR) -> HWND;
     fn PostMessageW(hWnd: HWND, Msg: UINT, wParam: WPARAM, lParam: LPARAM) -> BOOL;
+    fn CreateWindowExW(
+        dwExStyle: u32, lpClassName: *const u16, lpWindowName: *const u16,
+        dwStyle: u32, x: i32, y: i32, nWidth: i32, nHeight: i32,
+        hWndParent: HWND, hMenu: isize, hInstance: isize, lpParam: *mut std::ffi::c_void,
+    ) -> HWND;
+    fn DestroyWindow(hWnd: HWND) -> i32;
 }
+
+const HWND_MESSAGE: HWND = -3; // Message-only window parent
 
 /// Button combinations for message boxes
 #[allow(dead_code)]
@@ -270,4 +278,243 @@ pub fn quest_msgbox_yesno(msg: impl ToString, title: impl ToString, timeout: u32
 #[allow(dead_code)]
 pub fn quest_msgbox_okcancel(msg: impl ToString, title: impl ToString, timeout: u32) -> i32 {
     raw_msgbox(msg, title, MsgBoxType::Quest, MsgBtnType::OkCancel, timeout)
+}
+
+const NIM_ADD: u32 = 0x00000000;
+const NIM_MODIFY: u32 = 0x00000001;
+const NIM_DELETE: u32 = 0x00000002;
+const NIF_ICON: u32 = 0x00000002;
+const NIF_TIP: u32 = 0x00000004;
+const NIF_INFO: u32 = 0x00000010;
+const NIIF_INFO: u32 = 0x00000001;
+const NIIF_WARNING: u32 = 0x00000002;
+const NIIF_ERROR: u32 = 0x00000003;
+
+/// Notification icon types for balloon tips
+#[derive(Clone, Copy)]
+#[allow(dead_code)]
+pub enum NotifyIconType {
+    Info,
+    Warning,
+    Error,
+}
+
+#[repr(C)]
+#[allow(non_snake_case, clippy::upper_case_acronyms, dead_code)]
+struct NOTIFYICONDATAW {
+    pub cbSize: u32,
+    pub hWnd: HWND,
+    pub uID: UINT,
+    pub uFlags: UINT,
+    pub uCallbackMessage: UINT,
+    pub hIcon: isize,
+    pub szTip: [u16; 128],
+    pub dwState: u32,
+    pub dwStateMask: u32,
+    pub szInfo: [u16; 256],
+    pub uTimeoutOrVersion: UINT,
+    pub szInfoTitle: [u16; 64],
+    pub dwInfoFlags: u32,
+    pub guidItem: [u8; 16],
+    pub hBalloonIcon: isize,
+}
+
+#[link(name = "Shell32")]
+extern "system" {
+    fn Shell_NotifyIconW(dwMessage: u32, lpData: *const NOTIFYICONDATAW) -> i32;
+}
+
+#[link(name = "User32")]
+extern "system" {
+    fn LoadIconW(hInstance: isize, lpIconName: *const u16) -> isize;
+}
+
+/// Displays a balloon tip notification on an existing system tray icon.
+///
+/// This function uses `Shell_NotifyIconW` with `NIM_MODIFY` to show a balloon
+/// notification on a tray icon that has already been added to the system tray.
+///
+/// ### Parameters
+/// - `hwnd`: Handle to the window that owns the tray icon
+/// - `msg`: Notification message text (max 255 characters, will be truncated if longer)
+/// - `icon_id`: The unique identifier (`uID`) of the existing tray icon to display the balloon on
+///
+/// ### Returns
+/// - Non-zero value on success
+/// - `0` on failure (e.g., if the tray icon with the specified `icon_id` does not exist)
+///
+/// ### Prerequisites
+/// The tray icon identified by `icon_id` must have been previously added using
+/// `Shell_NotifyIconW` with `NIM_ADD`. If the icon does not exist, this function will fail.
+///
+/// ### Example
+/// ```ignore
+/// // Assuming a tray icon with ID 1 has been added to the system tray
+/// let result = notify_msgbox(hwnd, "Operation completed successfully", 1);
+/// if result == 0 {
+///     eprintln!("Failed to show notification");
+/// }
+/// ```
+#[allow(dead_code)]
+pub fn notify_msgbox(hwnd: HWND, msg: impl ToString, icon_id: u32) -> i32 {
+    let mut nid: NOTIFYICONDATAW = unsafe { std::mem::zeroed() };
+    nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
+    nid.hWnd = hwnd;
+    nid.uID = icon_id;
+    nid.uFlags = NIF_INFO;
+    nid.dwInfoFlags = NIIF_INFO;
+
+    let title_w = to_wide(PROCESS_NAME);
+    let msg_w = to_wide(msg);
+
+    for (i, &c) in title_w.iter().take(63).enumerate() {
+        nid.szInfoTitle[i] = c;
+    }
+    for (i, &c) in msg_w.iter().take(255).enumerate() {
+        nid.szInfo[i] = c;
+    }
+
+    unsafe { Shell_NotifyIconW(NIM_MODIFY, &nid) }
+}
+
+/// Unique icon ID for standalone notifications
+const STANDALONE_NOTIFY_ICON_ID: u32 = 0xCCAA_7788;
+
+/// IDI_APPLICATION = MAKEINTRESOURCE(32512)
+const IDI_APPLICATION: *const u16 = 32512 as *const u16;
+
+/// Displays a standalone balloon notification without requiring an existing tray icon.
+///
+/// This function creates a temporary system tray icon, shows a balloon notification,
+/// and automatically removes the icon after a delay. Works on Windows 7 and above
+/// without any prerequisites.
+///
+/// ### Parameters
+/// - `title`: Notification title (max 63 characters, will be truncated if longer)
+/// - `msg`: Notification message text (max 255 characters, will be truncated if longer)
+/// - `icon_type`: Type of notification icon (`Info`, `Warning`, or `Error`)
+/// - `timeout_ms`: Time in milliseconds before the tray icon is automatically removed
+///   (the balloon itself follows system settings, typically 5-30 seconds)
+///
+/// ### Returns
+/// - `true` on success
+/// - `false` on failure
+///
+/// ### Example
+/// ```ignore
+/// // Show an info notification
+/// show_notification("Download Complete", "Your file has been saved.", NotifyIconType::Info, 5000);
+///
+/// // Show a warning notification
+/// show_notification("Low Disk Space", "Less than 1GB remaining.", NotifyIconType::Warning, 5000);
+/// ```
+///
+/// ### Notes
+/// - This function spawns a background thread to remove the tray icon after `timeout_ms`
+/// - Multiple rapid calls may overlap; each call uses the same icon ID
+/// - Compatible with Windows 7, 8, 8.1, 10, and 11
+#[allow(dead_code)]
+pub fn show_notification(
+    title: impl ToString,
+    msg: impl ToString,
+    icon_type: NotifyIconType,
+    timeout_ms: u64,
+) -> bool {
+    let mut nid: NOTIFYICONDATAW = unsafe { std::mem::zeroed() };
+    nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
+    nid.hWnd = 0; // No window association needed
+    nid.uID = STANDALONE_NOTIFY_ICON_ID;
+    nid.uFlags = NIF_ICON | NIF_TIP | NIF_INFO;
+    nid.hIcon = unsafe { LoadIconW(0, IDI_APPLICATION) };
+    nid.dwInfoFlags = match icon_type {
+        NotifyIconType::Info => NIIF_INFO,
+        NotifyIconType::Warning => NIIF_WARNING,
+        NotifyIconType::Error => NIIF_ERROR,
+    };
+
+    let title_w = to_wide(title.to_string());
+    let msg_w = to_wide(msg.to_string());
+    let tip_w = to_wide(PROCESS_NAME);
+
+    // Set tooltip (shown on hover)
+    for (i, &c) in tip_w.iter().take(127).enumerate() {
+        nid.szTip[i] = c;
+    }
+    // Set balloon title
+    for (i, &c) in title_w.iter().take(63).enumerate() {
+        nid.szInfoTitle[i] = c;
+    }
+    // Set balloon message
+    for (i, &c) in msg_w.iter().take(255).enumerate() {
+        nid.szInfo[i] = c;
+    }
+
+    // First, try to delete any existing icon with the same ID (cleanup from previous calls)
+    unsafe { Shell_NotifyIconW(NIM_DELETE, &nid) };
+
+    // 创建一个仅用于接收消息的隐藏系统窗口 (Message-only window)
+    let class_name = to_wide("STATIC"); // 使用系统自带静态类
+    let hwnd = unsafe {
+        CreateWindowExW(
+            0,
+            class_name.as_ptr(),
+            ptr::null(), // 无名
+            0, 0, 0, 0, 0,
+            HWND_MESSAGE, 
+            0, 0, ptr::null_mut()
+        )
+    };
+
+    let mut nid: NOTIFYICONDATAW = unsafe { std::mem::zeroed() };
+    nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
+    nid.hWnd = hwnd;
+    nid.uID = STANDALONE_NOTIFY_ICON_ID;
+    nid.uFlags = NIF_ICON | NIF_TIP | NIF_INFO;
+    nid.hIcon = unsafe { LoadIconW(0, IDI_APPLICATION) };
+    nid.dwInfoFlags = match icon_type {
+        NotifyIconType::Info => NIIF_INFO,
+        NotifyIconType::Warning => NIIF_WARNING,
+        NotifyIconType::Error => NIIF_ERROR,
+    };
+
+    let title_w = to_wide(title);
+    let msg_w = to_wide(msg);
+    let tip_w = to_wide(PROCESS_NAME);
+
+    // Set tooltip (shown on hover)
+    for (i, &c) in tip_w.iter().take(127).enumerate() {
+        nid.szTip[i] = c;
+    }
+    // Set balloon title
+    for (i, &c) in title_w.iter().take(63).enumerate() {
+        nid.szInfoTitle[i] = c;
+    }
+    // Set balloon message
+    for (i, &c) in msg_w.iter().take(255).enumerate() {
+        nid.szInfo[i] = c;
+    }
+
+    // First, try to delete any existing icon with the same ID (cleanup from previous calls)
+    unsafe { Shell_NotifyIconW(NIM_DELETE, &nid) };
+
+    // Add the tray icon and show balloon
+    let result = unsafe { Shell_NotifyIconW(NIM_ADD, &nid) };
+    if result == 0 {
+        return false;
+    }
+
+    // Spawn a thread to remove the icon after timeout
+    thread::spawn(move || {
+        thread::sleep(std::time::Duration::from_millis(timeout_ms));
+        let mut cleanup_nid: NOTIFYICONDATAW = unsafe { std::mem::zeroed() };
+        cleanup_nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
+        cleanup_nid.hWnd = hwnd; // 对应当初的hwnd
+        cleanup_nid.uID = STANDALONE_NOTIFY_ICON_ID;
+        unsafe { 
+            Shell_NotifyIconW(NIM_DELETE, &cleanup_nid);
+            DestroyWindow(hwnd); // 释放伪窗口
+        };
+    });
+
+    true
 }
