@@ -112,17 +112,14 @@ static RES_CONF: &[u8] = include_bytes!("../res/config.toml");
 /// * 如果配置文件不存在，释放配置文件并执行初始化操作
 /// * 首次释放配置文件后会自动打开配置文件并提示重启程序
 pub fn unzip_res(paths: &PathInfos, exists: &FileExist) {
-    let screen_capture_res = RES_EXE;
-    let config_res = RES_CONF;
-
     if (!exists.exe_exist) || (!exists.exe_latest) {
-        fs::write(&paths.exe_path, screen_capture_res).expect("Error write EXE file.");
+        fs::write(&paths.exe_path, RES_EXE).expect("Error write EXE file.");
         println!("EXE: Release exe file.");
     } else {
         println!("EXE: No need to release.");
     }
     if !exists.conf_exist {
-        fs::write(&paths.conf_path, config_res).expect("Error write config file.");
+        fs::write(&paths.conf_path, RES_CONF).expect("Error write config file.");
         println!("CONF: Release config file.");
         operate_exe(&paths.conf_path, "conf", HashMap::new());
         operate_exe(Path::new(""), "restart", HashMap::new());
@@ -183,14 +180,12 @@ impl OperateMode for Vec<String> {
 /// ### 参数
 /// - `path`: 要操作的程序路径
 /// - `mode`: 操作模式字符串
-/// - `gui`: GUI相关参数的HashMap，包含normal和long模式的参数
+/// - `gui`: GUI相关参数（保留参数，用于兼容trait签名）
 ///
 /// ### 操作模式
 /// - `pin`: 启动钉图功能，从剪贴板获取图像并钉在屏幕上
-/// - `exit`: 退出程序，显示退出消息后终止进程
 /// - `conf`: 使用记事本打开配置文件进行编辑
 /// - `restart`: 显示重启提示消息并退出程序
-/// - 其他参数模式: 执行截屏相关操作，支持按'*'分割的多参数格式
 fn execute_string_mode(path: &Path, mode: &str, gui: HashMap<String, String>) {
     match mode {
         "pin" => {
@@ -269,16 +264,48 @@ fn execute_vector_mode(path: &Path, args: Vec<String>, gui: HashMap<String, Stri
     let has_long = args.iter().any(|arg| arg.contains("long"));
 
     let gui_arg = if has_long {
-        gui.get("long").unwrap_or(&default_empty)
+        gui.get("long").unwrap_or(&default_empty).clone()
     } else {
-        gui.get("normal").unwrap_or(&default_empty)
+        gui.get("normal").unwrap_or(&default_empty).clone()
     };
 
-    if !gui_arg.is_empty() {
-        command.arg(gui_arg);
-    }
+    let path_clone = path.to_path_buf();
 
-    let _ = command.spawn();
+    std::thread::spawn(move || {
+        let mut command = std::process::Command::new(path_clone);
+
+        for arg in &args {
+            command.arg(arg);
+        }
+
+        if !gui_arg.is_empty() {
+            command.arg(gui_arg);
+        }
+
+        match command.status() {
+            Ok(status) => {
+                if let Some(code) = status.code() {
+                    println!("Exit code: {}", code);
+                    if code == 8 {
+                        crate::msgbox::show_notification(
+                            "截图保存",
+                            "已保存到文件",
+                            crate::msgbox::NotifyIconType::Info,
+                            1000,
+                        );
+                    } else if code == 9 {
+                        crate::msgbox::show_notification(
+                            "截图保存",
+                            "已保存到剪贴板",
+                            crate::msgbox::NotifyIconType::Info,
+                            1000,
+                        );
+                    }
+                }
+            }
+            Err(e) => eprintln!("Failed to execute command: {}", e),
+        }
+    });
 }
 
 /// 构建截图操作的命令行参数

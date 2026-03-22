@@ -16,10 +16,10 @@ fn main() {
     #[cfg(windows)]
     {
         let mut res = winres::WindowsResource::new();
-        res.set("FileDescription", "Starter for ScreenCapture");
+        res.set("FileDescription", "Starter of ScreenCapture");
         res.set(
             "LegalCopyright",
-            "Copyright (C) Mikachu2333 2025. MIT License.",
+            "Copyright (C) Mikachu2333 2025-2026. MIT License.",
         );
 
         if let Err(e) = res.compile() {

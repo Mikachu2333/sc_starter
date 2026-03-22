@@ -48,9 +48,18 @@ extern "system" {
     fn FindWindowW(lpClassName: LPCWSTR, lpWindowName: LPCWSTR) -> HWND;
     fn PostMessageW(hWnd: HWND, Msg: UINT, wParam: WPARAM, lParam: LPARAM) -> BOOL;
     fn CreateWindowExW(
-        dwExStyle: u32, lpClassName: *const u16, lpWindowName: *const u16,
-        dwStyle: u32, x: i32, y: i32, nWidth: i32, nHeight: i32,
-        hWndParent: HWND, hMenu: isize, hInstance: isize, lpParam: *mut std::ffi::c_void,
+        dwExStyle: u32,
+        lpClassName: *const u16,
+        lpWindowName: *const u16,
+        dwStyle: u32,
+        x: i32,
+        y: i32,
+        nWidth: i32,
+        nHeight: i32,
+        hWndParent: HWND,
+        hMenu: isize,
+        hInstance: isize,
+        lpParam: *mut std::ffi::c_void,
     ) -> HWND;
     fn DestroyWindow(hWnd: HWND) -> i32;
 }
@@ -420,100 +429,68 @@ pub fn show_notification(
     icon_type: NotifyIconType,
     timeout_ms: u64,
 ) -> bool {
-    let mut nid: NOTIFYICONDATAW = unsafe { std::mem::zeroed() };
-    nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
-    nid.hWnd = 0; // No window association needed
-    nid.uID = STANDALONE_NOTIFY_ICON_ID;
-    nid.uFlags = NIF_ICON | NIF_TIP | NIF_INFO;
-    nid.hIcon = unsafe { LoadIconW(0, IDI_APPLICATION) };
-    nid.dwInfoFlags = match icon_type {
-        NotifyIconType::Info => NIIF_INFO,
-        NotifyIconType::Warning => NIIF_WARNING,
-        NotifyIconType::Error => NIIF_ERROR,
-    };
-
     let title_w = to_wide(title.to_string());
     let msg_w = to_wide(msg.to_string());
-    let tip_w = to_wide(PROCESS_NAME);
 
-    // Set tooltip (shown on hover)
-    for (i, &c) in tip_w.iter().take(127).enumerate() {
-        nid.szTip[i] = c;
-    }
-    // Set balloon title
-    for (i, &c) in title_w.iter().take(63).enumerate() {
-        nid.szInfoTitle[i] = c;
-    }
-    // Set balloon message
-    for (i, &c) in msg_w.iter().take(255).enumerate() {
-        nid.szInfo[i] = c;
-    }
-
-    // First, try to delete any existing icon with the same ID (cleanup from previous calls)
-    unsafe { Shell_NotifyIconW(NIM_DELETE, &nid) };
-
-    // 创建一个仅用于接收消息的隐藏系统窗口 (Message-only window)
-    let class_name = to_wide("STATIC"); // 使用系统自带静态类
-    let hwnd = unsafe {
-        CreateWindowExW(
-            0,
-            class_name.as_ptr(),
-            ptr::null(), // 无名
-            0, 0, 0, 0, 0,
-            HWND_MESSAGE, 
-            0, 0, ptr::null_mut()
-        )
-    };
-
-    let mut nid: NOTIFYICONDATAW = unsafe { std::mem::zeroed() };
-    nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
-    nid.hWnd = hwnd;
-    nid.uID = STANDALONE_NOTIFY_ICON_ID;
-    nid.uFlags = NIF_ICON | NIF_TIP | NIF_INFO;
-    nid.hIcon = unsafe { LoadIconW(0, IDI_APPLICATION) };
-    nid.dwInfoFlags = match icon_type {
-        NotifyIconType::Info => NIIF_INFO,
-        NotifyIconType::Warning => NIIF_WARNING,
-        NotifyIconType::Error => NIIF_ERROR,
-    };
-
-    let title_w = to_wide(title);
-    let msg_w = to_wide(msg);
-    let tip_w = to_wide(PROCESS_NAME);
-
-    // Set tooltip (shown on hover)
-    for (i, &c) in tip_w.iter().take(127).enumerate() {
-        nid.szTip[i] = c;
-    }
-    // Set balloon title
-    for (i, &c) in title_w.iter().take(63).enumerate() {
-        nid.szInfoTitle[i] = c;
-    }
-    // Set balloon message
-    for (i, &c) in msg_w.iter().take(255).enumerate() {
-        nid.szInfo[i] = c;
-    }
-
-    // First, try to delete any existing icon with the same ID (cleanup from previous calls)
-    unsafe { Shell_NotifyIconW(NIM_DELETE, &nid) };
-
-    // Add the tray icon and show balloon
-    let result = unsafe { Shell_NotifyIconW(NIM_ADD, &nid) };
-    if result == 0 {
-        return false;
-    }
-
-    // Spawn a thread to remove the icon after timeout
+    // 将整个托盘的生命周期移至后台线程，保证同一线程创建和销毁，避免 DestroyWindow 跨线程失败
     thread::spawn(move || {
-        thread::sleep(std::time::Duration::from_millis(timeout_ms));
-        let mut cleanup_nid: NOTIFYICONDATAW = unsafe { std::mem::zeroed() };
-        cleanup_nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
-        cleanup_nid.hWnd = hwnd; // 对应当初的hwnd
-        cleanup_nid.uID = STANDALONE_NOTIFY_ICON_ID;
-        unsafe { 
-            Shell_NotifyIconW(NIM_DELETE, &cleanup_nid);
-            DestroyWindow(hwnd); // 释放伪窗口
+        let class_name = to_wide("STATIC");
+        let hwnd = unsafe {
+            CreateWindowExW(
+                0,
+                class_name.as_ptr(),
+                ptr::null(),
+                0,
+                0,
+                0,
+                0,
+                0,
+                HWND_MESSAGE,
+                0,
+                0,
+                ptr::null_mut(),
+            )
         };
+
+        if hwnd == 0 {
+            return;
+        }
+
+        let mut nid: NOTIFYICONDATAW = unsafe { std::mem::zeroed() };
+        nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
+        nid.hWnd = hwnd;
+        nid.uID = STANDALONE_NOTIFY_ICON_ID;
+        nid.uFlags = NIF_ICON | NIF_TIP | NIF_INFO;
+        nid.hIcon = unsafe { LoadIconW(0, IDI_APPLICATION) };
+        nid.dwInfoFlags = match icon_type {
+            NotifyIconType::Info => NIIF_INFO,
+            NotifyIconType::Warning => NIIF_WARNING,
+            NotifyIconType::Error => NIIF_ERROR,
+        };
+
+        let tip_w = to_wide(PROCESS_NAME);
+        for (i, &c) in tip_w.iter().take(127).enumerate() {
+            nid.szTip[i] = c;
+        }
+        for (i, &c) in title_w.iter().take(63).enumerate() {
+            nid.szInfoTitle[i] = c;
+        }
+        for (i, &c) in msg_w.iter().take(255).enumerate() {
+            nid.szInfo[i] = c;
+        }
+
+        // 清理可能由于此前意外崩溃残留的相同 ID 图标
+        unsafe { Shell_NotifyIconW(NIM_DELETE, &nid) };
+
+        // 添加图标并展示气泡通知
+        if unsafe { Shell_NotifyIconW(NIM_ADD, &nid) } != 0 {
+            thread::sleep(std::time::Duration::from_millis(timeout_ms));
+
+            // 超时后将其移除 (此时 NIF_INFO 已经不重要，可以用原实例直接移除)
+            unsafe { Shell_NotifyIconW(NIM_DELETE, &nid) };
+        }
+
+        unsafe { DestroyWindow(hwnd) };
     });
 
     true
