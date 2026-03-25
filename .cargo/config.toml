@@ -4,3 +4,7 @@
 [target.x86_64-pc-windows-gnu]
 # 静态链接CRT运行时，避免依赖外部运行时库
 rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.x86_64-pc-windows-msvc]
+# 在 MSVC 工具链下同样开启 CRT 静态链接（避免运行时依赖 vcruntime140.dll 等）
+rustflags = ["-C", "target-feature=+crt-static"]
