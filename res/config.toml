@@ -71,8 +71,10 @@ dir = "&"
 launch_app_path = "C:/Windows/System32/notepad.exe"
 # 启动参数，可以置空
 # 使用 Tab（打不出来可以复制这个<	>）间隔每个参数
+# 如果启动参数中包含英文双引号『"』，请使用英文半角反斜杠进行转义，如『\"』
 # Process Args, blank is allowed
 # Use Tab to separate each argument (it may not be typed, you can copy this <	>)
+# If the launch parameter contains double quotation marks for example <"test">, please use an half-width backslash to escape it, such as <\"text\">
 launch_app_args = ""
 
 [sundry]
