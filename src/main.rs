@@ -122,10 +122,11 @@ fn main() {
     let tray_manager = TrayManager::new(settings.sundry.lang);
 
     // 获取菜单项 ID（用于事件匹配）
-    let capture_id = tray_manager.capture_id().clone();
-    let long_capture_id = tray_manager.long_capture_id().clone();
-    let open_config_id = tray_manager.open_config_id().clone();
-    let exit_id = tray_manager.exit_id().clone();
+    let capture_id = tray_manager.capture_id.clone();
+    let long_capture_id = tray_manager.long_capture_id.clone();
+    let full_capture_id = tray_manager.full_capture_id.clone();
+    let open_config_id = tray_manager.open_config_id.clone();
+    let exit_id = tray_manager.exit_id.clone();
 
     // 创建事件循环和退出通知代理
     let event_loop = EventLoop::new();
@@ -178,13 +179,32 @@ fn main() {
             if menu_event.id == capture_id {
                 // 菜单：截图
                 println!("Menu Event: Capture");
+                if let Some(tm) = &tray_manager {
+                    tm.hide_menu();
+                    tm.show_menu();
+                }
                 let args = build_capture_args(comp_level, scale_level, &save_path, false);
                 spawn_capture(&exe_path, args, gui.clone());
             } else if menu_event.id == long_capture_id {
                 // 菜单：长截图
                 println!("Menu Event: Long Capture");
+                if let Some(tm) = &tray_manager {
+                    tm.hide_menu();
+                    tm.show_menu();
+                }
                 let args = build_capture_args(comp_level, scale_level, &save_path, true);
                 spawn_capture(&exe_path, args, gui.clone());
+            } else if menu_event.id == full_capture_id {
+                println!("Menu Event: Full Capture");
+                if let Some(tm) = &tray_manager {
+                    tm.hide_menu();
+                    tm.show_menu();
+                }
+                let args: Vec<String> = vec![
+                    "--cap:fullscreen".into(),
+                    crate::hotkeys::save_path_get(&save_path),
+                ];
+                spawn_capture(&exe_path, args, std::collections::HashMap::new());
             } else if menu_event.id == open_config_id {
                 // 菜单：设置
                 println!("Menu Event: Open Config");
