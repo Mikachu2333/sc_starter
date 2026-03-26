@@ -7,7 +7,7 @@
 //! - 监控文件状态并自动恢复
 
 use crate::{
-    msgbox,
+    msgbox::*,
     types::{FileExist, PathInfos, RES_HASH_SHA1},
 };
 use std::{
@@ -195,13 +195,13 @@ fn execute_string_mode(path: &Path, mode: &str, gui: HashMap<String, String>) {
             match Command::new("notepad.exe").arg(path).spawn() {
                 Ok(_) => (),
                 Err(_) => {
-                    msgbox::error_msgbox("Error to open the config file with notepad.", "", 0);
+                    error_msgbox("Error to open the config file with notepad.", "", 0);
                 }
             };
         }
         "restart" => {
             pause(3);
-            msgbox::info_msgbox(
+            info_msgbox(
                 "Please restart the program to apply your custom settings.",
                 "Restart",
                 5,
@@ -287,24 +287,23 @@ fn execute_vector_mode(path: &Path, args: Vec<String>, gui: HashMap<String, Stri
                 if let Some(code) = status.code() {
                     println!("Exit code: {}", code);
                     if code == 8 {
-                        crate::msgbox::show_notification(
-                            "截图保存",
+                        notify_msgbox_standalone(
+                            "SC_Starter",
                             "已保存到文件",
-                            crate::msgbox::NotifyIconType::Info,
-                            1000,
+                            1500,
                         );
                     } else if code == 9 {
-                        crate::msgbox::show_notification(
-                            "截图保存",
+                        notify_msgbox_standalone(
+                            "SC_Starter",
                             "已保存到剪贴板",
-                            crate::msgbox::NotifyIconType::Info,
-                            1000,
+                            1500,
                         );
                     }
                 }
             }
             Err(e) => eprintln!("Failed to execute command: {}", e),
         }
+        wait_notifications();
     });
 }
 
