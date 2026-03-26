@@ -214,9 +214,9 @@ pub fn execute_process(
                     println!("Exit code: {}", code);
                     if notification {
                         if code == 8 {
-                            notify_msgbox_standalone("SC_Starter", "已保存到文件", 1500);
+                            notify_msgbox_standalone("SC_Starter", "已保存到文件", 2000);
                         } else if code == 9 {
-                            notify_msgbox_standalone("SC_Starter", "已保存到剪贴板", 1500);
+                            notify_msgbox_standalone("SC_Starter", "已保存到剪贴板", 2000);
                         }
                     }
                 }

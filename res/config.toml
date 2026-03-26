@@ -4,8 +4,8 @@
 # ①The program will automatically process the configuration file when starting
 #   - 如果文件不存在，会创建默认配置
 #   - If the file does not exist, default settings will be created
-#   - 如果某项配置缺失，会自动补充默认值
-#   - If any setting is missing, default values will be added
+#   - 如果某项配置缺失，会自动补充默认值。同目录下存在一默认配置文件，可自行参考补全过时配置
+#   - If any setting is missing, default values will be used. A default configuration file exists in the same directory, you can refer to it to complete the outdated configuration
 #
 # ②配置更改后需要重启程序才能生效
 # ②Program restart is required after configuration changes

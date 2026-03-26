@@ -229,8 +229,14 @@ impl SettingsCollection {
         let launch_str = {
             if self.launch_valid() {
                 format!(
-                    "\n    Launch App Path: {}\n    Launch App Args: <{}>",
-                    &self.path.launch_app.path.to_string_lossy(),
+                    "\n    Launch App Path:   {}\n    Launch App Args:   <{}>",
+                    &self
+                        .path
+                        .launch_app
+                        .path
+                        .display()
+                        .to_string()
+                        .trim_start_matches(r"\\?\"),
                     {
                         let temp = self.path.launch_app.args.join(" ");
                         if temp.trim().is_empty() {
@@ -246,16 +252,18 @@ impl SettingsCollection {
         };
         format!(
             r#"Sundry:
-    Save Path:       {}{}
-    Auto Startup:    {}
-    Comp Level:      {}
-    Scale Level:     {}
+    Save Path:         {}{}
+    Auto Startup:      {}
+    Show Notification: {}
+    Comp Level:        {}
+    Scale Level:       {}
     GUI:
         Normal: {}
         Long:   {}"#,
             path_display(&self.path.save_path, "Manual Select"),
             launch_str,
             self.sundry.auto_start,
+            self.sundry.notification,
             self.sundry.comp_level,
             self.sundry.scale_level,
             self.gui
@@ -595,6 +603,9 @@ fn path_display(path: &PathBuf, info: impl ToString) -> String {
     if path == &PathBuf::new() {
         info.to_string()
     } else {
-        path.display().to_string()
+        path.display()
+            .to_string()
+            .trim_start_matches(r"\\?\")
+            .into()
     }
 }
