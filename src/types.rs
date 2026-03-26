@@ -27,6 +27,8 @@ pub struct FileExist {
     pub exe_latest: bool,
     /// 配置文件是否存在
     pub conf_exist: bool,
+    /// 示例配置文件是否存在
+    pub conf_example_exist: bool,
 }
 
 /// 杂项设置结构体
@@ -41,6 +43,8 @@ pub struct Sundry {
     pub scale_level: i32,
     /// 语言（true: CN, false: EN）
     pub lang: bool,
+    /// 通知
+    pub notification: bool,
 }
 impl Default for Sundry {
     fn default() -> Self {
@@ -49,6 +53,7 @@ impl Default for Sundry {
             comp_level: -1,
             scale_level: 100,
             lang: true,
+            notification: false,
         }
     }
 }
@@ -285,6 +290,8 @@ pub struct PathInfos {
     pub exe_path: PathBuf,
     /// 配置文件（config.toml）路径
     pub conf_path: PathBuf,
+    /// 示例配置文件（config_example.toml）路径
+    pub conf_example_path: PathBuf,
 }
 impl std::fmt::Display for PathInfos {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {

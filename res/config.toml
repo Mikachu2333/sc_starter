@@ -96,6 +96,11 @@ scale_ratio = 100
 # Language, Chinese is 1, English is 0
 lang = 1
 
+# 通知是否开启
+# Whether notifications are enabled
+# true->启用, false->禁用
+notification = false
+
 [gui]
 # GUI配置，默认全部启用
 # rect：方框

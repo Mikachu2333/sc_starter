@@ -1,6 +1,6 @@
 [package]
 name    = "SC_Starter"
-version = "2.10.0"
+version = "2.10.2"
 # 记得更新 types.rs 中 res的版本
 edition = "2021"
 build   = "build.rs"
@@ -24,8 +24,8 @@ tauri-winres = "0.3.5"
 directories     = "6.0.0"
 single-instance = "0.3.3"
 windows-hotkeys = "0.2.1"
-toml            = "0.9.8"
-toml_edit       = "0.23.9"
+toml            = "1.1.0+spec-1.1.0"
+toml_edit       = "0.25.8+spec-1.1.0"
 tray-icon       = "0.21.3"
 tao             = "0.35.0"
 mslnk           = "0.1.8"

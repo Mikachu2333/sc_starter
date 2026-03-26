@@ -51,9 +51,10 @@ pub fn check_res_exist(infos: &PathInfos) -> FileExist {
 
     files_exist.exe_exist = infos.exe_path.exists();
     files_exist.conf_exist = infos.conf_path.exists();
+    files_exist.conf_example_exist = infos.conf_example_path.exists();
 
     if files_exist.exe_exist {
-        files_exist.exe_latest = check_exe_latest(&infos.exe_path);
+        files_exist.exe_latest = check_latest(&infos.exe_path);
     }
     files_exist
 }
@@ -70,7 +71,7 @@ pub fn check_res_exist(infos: &PathInfos) -> FileExist {
 /// - 使用Windows系统的certutil工具计算哈希值
 /// - 通过CREATE_NO_WINDOW标志隐藏命令行窗口
 /// - 将计算结果与内置的RES_HASH常量进行比较
-fn check_exe_latest(file_path: &Path) -> bool {
+fn check_latest(file_path: &Path) -> bool {
     let hash = match std::process::Command::new("certutil")
         .arg("-hashfile")
         .arg(file_path)
@@ -121,135 +122,60 @@ pub fn unzip_res(paths: &PathInfos, exists: &FileExist) {
     if !exists.conf_exist {
         fs::write(&paths.conf_path, RES_CONF).expect("Error write config file.");
         println!("CONF: Release config file.");
-        operate_exe(&paths.conf_path, "conf", HashMap::new());
-        operate_exe(Path::new(""), "restart", HashMap::new());
+        open_config(&paths.conf_path);
+        restart_prompt();
+    } else {
+        println!("CONF: No need to release.");
+    }
+    if !exists.conf_example_exist {
+        fs::write(&paths.conf_example_path, RES_CONF).expect("Error write config file.");
+        println!("CONF: Release config example file.");
     } else {
         println!("CONF: No need to release.");
     }
 }
 
+/// 使用记事本打开配置文件
+/// - `path`: 配置文件路径
+pub fn open_config(path: &Path) {
+    match Command::new("notepad.exe").arg(path).spawn() {
+        Ok(_) => (),
+        Err(_) => {
+            error_msgbox("Error to open the config file with notepad.", "", 0);
+        }
+    };
+}
+
+/// 显示重启提示并退出程序
+pub fn restart_prompt() {
+    pause(3);
+    info_msgbox(
+        "Please restart the program to apply your custom settings.",
+        "Restart",
+        5,
+    );
+    std::process::exit(0);
+}
+
 /// 程序操作控制函数
-///
-/// ### 参数
-/// - `path`: 要操作的程序路径
-/// - `mode`: 操作模式，可以是字符串或字符串向量
-/// - `gui`: GUI相关参数的HashMap，包含normal和long模式的参数
-///
-/// ### 操作模式
-/// - 字符串模式:
-///   - `pin`: 启动钉图功能，从剪贴板获取图像并钉在屏幕上
-///   - `exit`: 退出程序，显示退出消息后终止进程
-///   - `conf`: 使用记事本打开配置文件进行编辑
-///   - `restart`: 显示重启提示消息并退出程序
-///   - 其他包含参数的模式: 执行截屏相关操作
-/// - 向量模式: 直接将向量中的所有参数传递给程序
-pub fn operate_exe<T>(path: &Path, mode: T, gui: HashMap<String, String>)
-where
-    T: OperateMode,
-{
-    mode.execute(path, gui);
-    pause(1);
-}
-
-/// 操作模式trait，定义不同类型的执行方式
-///
-/// ### 说明
-/// - 为 `&str` 实现时执行字符串模式逻辑（向后兼容原有功能）
-/// - 为 `Vec<String>` 实现时执行向量模式逻辑（直接传递参数列表）
-/// - 允许 `operate_exe` 函数接受不同类型的模式参数
-pub trait OperateMode {
-    fn execute(self, path: &Path, gui: HashMap<String, String>);
-}
-
-/// 为字符串实现操作模式
-impl OperateMode for &str {
-    fn execute(self, path: &Path, gui: HashMap<String, String>) {
-        execute_string_mode(path, self, gui);
-    }
-}
-
-/// 为字符串向量实现操作模式
-impl OperateMode for Vec<String> {
-    fn execute(self, path: &Path, gui: HashMap<String, String>) {
-        execute_vector_mode(path, self, gui);
-    }
-}
-
-/// 执行字符串模式的内部函数
-///
-/// ### 参数
-/// - `path`: 要操作的程序路径
-/// - `mode`: 操作模式字符串
-/// - `gui`: GUI相关参数（保留参数，用于兼容trait签名）
-///
-/// ### 操作模式
-/// - `pin`: 启动钉图功能，从剪贴板获取图像并钉在屏幕上
-/// - `conf`: 使用记事本打开配置文件进行编辑
-/// - `restart`: 显示重启提示消息并退出程序
-fn execute_string_mode(path: &Path, mode: &str, gui: HashMap<String, String>) {
-    match mode {
-        "pin" => {
-            let _ = Command::new(path).arg("--pin:clipboard").spawn();
-        }
-        "conf" => {
-            match Command::new("notepad.exe").arg(path).spawn() {
-                Ok(_) => (),
-                Err(_) => {
-                    error_msgbox("Error to open the config file with notepad.", "", 0);
-                }
-            };
-        }
-        "restart" => {
-            pause(3);
-            info_msgbox(
-                "Please restart the program to apply your custom settings.",
-                "Restart",
-                5,
-            );
-            std::process::exit(0);
-        }
-        parm => {
-            let default_empty = String::new();
-            println!("parm: {:?}\narg: {:?}\n", parm, gui.clone());
-            let gui_arg = if parm.contains("long") {
-                gui.get("long").unwrap_or(&default_empty)
-            } else {
-                gui.get("normal").unwrap_or(&default_empty)
-            };
-            if parm.contains('*') {
-                // 包含多个参数，按'*'分割
-                let temp = parm.split('*').map(String::from);
-                let mut cmd = Command::new(path);
-                cmd.args(temp);
-                if !gui_arg.is_empty() {
-                    cmd.arg(gui_arg);
-                }
-                let _ = cmd.spawn();
-            } else {
-                // 单个参数
-                let mut cmd = Command::new(path);
-                if !gui_arg.is_empty() {
-                    cmd.arg(gui_arg);
-                }
-                let _ = cmd.spawn();
-            }
-        }
-    }
-}
-
-/// 执行向量模式的内部函数
 ///
 /// ### 参数
 /// - `path`: 要执行的程序路径
 /// - `args`: 参数向量，包含所有命令行参数
 /// - `gui`: GUI相关参数的HashMap，包含normal和long模式的参数
+/// - `notification`: 是否显示通知
 ///
 /// ### 功能
 /// - 直接将向量中的所有参数传递给程序
 /// - 根据参数中是否包含"long"选择对应的GUI参数
 /// - 自动添加GUI参数（如果非空）
 /// - 异步启动程序，不阻塞主线程
-fn execute_vector_mode(path: &Path, args: Vec<String>, gui: HashMap<String, String>) {
+pub fn execute_process(
+    path: &Path,
+    args: Vec<String>,
+    gui: HashMap<String, String>,
+    notification: bool,
+) {
     println!("args: {:?}\n", &args);
 
     let default_empty = String::new();
@@ -286,18 +212,12 @@ fn execute_vector_mode(path: &Path, args: Vec<String>, gui: HashMap<String, Stri
             Ok(status) => {
                 if let Some(code) = status.code() {
                     println!("Exit code: {}", code);
-                    if code == 8 {
-                        notify_msgbox_standalone(
-                            "SC_Starter",
-                            "已保存到文件",
-                            1500,
-                        );
-                    } else if code == 9 {
-                        notify_msgbox_standalone(
-                            "SC_Starter",
-                            "已保存到剪贴板",
-                            1500,
-                        );
+                    if notification {
+                        if code == 8 {
+                            notify_msgbox_standalone("SC_Starter", "已保存到文件", 1500);
+                        } else if code == 9 {
+                            notify_msgbox_standalone("SC_Starter", "已保存到剪贴板", 1500);
+                        }
                     }
                 }
             }
@@ -342,10 +262,11 @@ pub fn spawn_capture(
     exe_path: &std::path::Path,
     args: Vec<String>,
     gui: std::collections::HashMap<String, String>,
+    notification: bool,
 ) {
     let exe = exe_path.to_path_buf();
     std::thread::spawn(move || {
-        operate_exe(&exe, args, gui);
+        execute_process(&exe, args, gui, notification);
     });
 }
 

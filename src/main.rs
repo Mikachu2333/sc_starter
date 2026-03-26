@@ -95,6 +95,7 @@ fn main() {
         dir_path: dir_path.clone(),
         exe_path: dir_path.join("ScreenCapture.exe"),
         conf_path: dir_path.join("config.toml"),
+        conf_example_path: dir_path.join("config_example.toml"),
     };
     println!("{}", &path_infos);
 
@@ -141,6 +142,7 @@ fn main() {
     let gui = settings.gui.clone();
     let comp_level = settings.sundry.comp_level;
     let scale_level = settings.sundry.scale_level;
+    let notification = settings.sundry.notification;
 
     let conf_path = path_infos.conf_path.clone();
 
@@ -170,7 +172,7 @@ fn main() {
             } = tray_event
             {
                 let args = build_capture_args(comp_level, scale_level, &save_path, false);
-                spawn_capture(&exe_path, args, gui.clone());
+                spawn_capture(&exe_path, args, gui.clone(), notification);
             }
         }
 
@@ -184,7 +186,7 @@ fn main() {
                     tm.show_menu();
                 }
                 let args = build_capture_args(comp_level, scale_level, &save_path, false);
-                spawn_capture(&exe_path, args, gui.clone());
+                spawn_capture(&exe_path, args, gui.clone(), notification);
             } else if menu_event.id == long_capture_id {
                 // 菜单：长截图
                 println!("Menu Event: Long Capture");
@@ -193,7 +195,7 @@ fn main() {
                     tm.show_menu();
                 }
                 let args = build_capture_args(comp_level, scale_level, &save_path, true);
-                spawn_capture(&exe_path, args, gui.clone());
+                spawn_capture(&exe_path, args, gui.clone(), notification);
             } else if menu_event.id == full_capture_id {
                 println!("Menu Event: Full Capture");
                 if let Some(tm) = &tray_manager {
@@ -204,11 +206,16 @@ fn main() {
                     "--cap:fullscreen".into(),
                     crate::hotkeys::save_path_get(&save_path),
                 ];
-                spawn_capture(&exe_path, args, std::collections::HashMap::new());
+                spawn_capture(
+                    &exe_path,
+                    args,
+                    std::collections::HashMap::new(),
+                    notification,
+                );
             } else if menu_event.id == open_config_id {
                 // 菜单：设置
                 println!("Menu Event: Open Config");
-                operate_exe(&conf_path, "conf", std::collections::HashMap::new());
+                open_config(&conf_path);
             } else if menu_event.id == exit_id {
                 // 菜单：退出
                 println!("Menu Event: Exit requested");
