@@ -9,13 +9,16 @@
 use std::{
     ptr,
     sync::{
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
-        Arc,
     },
-    thread,
+    thread::{self, JoinHandle},
 };
 
 static PROCESS_NAME: &str = std::env!("CARGO_PKG_NAME");
+
+/// Global list of notification window threads
+static NOTIFY_THREADS: Mutex<Vec<JoinHandle<()>>> = Mutex::new(Vec::new());
 
 #[allow(clippy::upper_case_acronyms)]
 type HWND = isize;
@@ -37,7 +40,7 @@ const MB_SETFOREGROUND: UINT = 0x10000;
 const WM_CLOSE: UINT = 0x0010;
 
 #[link(name = "User32")]
-extern "system" {
+unsafe extern "system" {
     fn MessageBoxExW(
         hWnd: HWND,
         lpText: LPCWSTR,
@@ -63,8 +66,6 @@ extern "system" {
     ) -> HWND;
     fn DestroyWindow(hWnd: HWND) -> i32;
 }
-
-const HWND_MESSAGE: HWND = -3; // Message-only window parent
 
 /// Button combinations for message boxes
 #[allow(dead_code)]
@@ -289,15 +290,9 @@ pub fn quest_msgbox_okcancel(msg: impl ToString, title: impl ToString, timeout: 
     raw_msgbox(msg, title, MsgBoxType::Quest, MsgBtnType::OkCancel, timeout)
 }
 
-const NIM_ADD: u32 = 0x00000000;
 const NIM_MODIFY: u32 = 0x00000001;
-const NIM_DELETE: u32 = 0x00000002;
-const NIF_ICON: u32 = 0x00000002;
-const NIF_TIP: u32 = 0x00000004;
 const NIF_INFO: u32 = 0x00000010;
 const NIIF_INFO: u32 = 0x00000001;
-const NIIF_WARNING: u32 = 0x00000002;
-const NIIF_ERROR: u32 = 0x00000003;
 
 /// Notification icon types for balloon tips
 #[derive(Clone, Copy)]
@@ -329,13 +324,8 @@ struct NOTIFYICONDATAW {
 }
 
 #[link(name = "Shell32")]
-extern "system" {
+unsafe extern "system" {
     fn Shell_NotifyIconW(dwMessage: u32, lpData: *const NOTIFYICONDATAW) -> i32;
-}
-
-#[link(name = "User32")]
-extern "system" {
-    fn LoadIconW(hInstance: isize, lpIconName: *const u16) -> isize;
 }
 
 /// Displays a balloon tip notification on an existing system tray icon.
@@ -386,112 +376,440 @@ pub fn notify_msgbox(hwnd: HWND, msg: impl ToString, icon_id: u32) -> i32 {
     unsafe { Shell_NotifyIconW(NIM_MODIFY, &nid) }
 }
 
-/// Unique icon ID for standalone notifications
-const STANDALONE_NOTIFY_ICON_ID: u32 = 0xCCAA_7788;
+// ============================================================================
+// Custom Notification Window Implementation
+// ============================================================================
 
-/// IDI_APPLICATION = MAKEINTRESOURCE(32512)
-const IDI_APPLICATION: *const u16 = 32512 as *const u16;
+// Window styles
+const WS_POPUP: u32 = 0x80000000;
+const WS_CAPTION: u32 = 0x00C00000;
+const WS_SYSMENU: u32 = 0x00080000;
+const WS_VISIBLE: u32 = 0x10000000;
+const WS_CHILD: u32 = 0x40000000;
+const WS_VSCROLL: u32 = 0x00200000;
+const WS_EX_TOPMOST: u32 = 0x00000008;
+const WS_EX_NOACTIVATE: u32 = 0x08000000;
+const WS_EX_TOOLWINDOW: u32 = 0x00000080;
 
-/// Displays a standalone balloon notification without requiring an existing tray icon.
+// Edit control styles
+const ES_MULTILINE: u32 = 0x0004;
+const ES_READONLY: u32 = 0x0800;
+const ES_AUTOVSCROLL: u32 = 0x0040;
+
+// Window messages
+const WM_CREATE: u32 = 0x0001;
+const WM_DESTROY: u32 = 0x0002;
+const WM_TIMER: u32 = 0x0113;
+const WM_SETFONT: u32 = 0x0030;
+const WM_NCDESTROY: u32 = 0x0082;
+
+// System parameters
+const SPI_GETWORKAREA: u32 = 0x0030;
+
+// GetWindowLongPtr index
+const GWLP_USERDATA: i32 = -21;
+
+// Timer ID for auto-close
+const TIMER_ID_AUTOCLOSE: usize = 1;
+
+// Windows notification typical size at 96 DPI
+const NOTIFY_WIDTH_96DPI: i32 = 364;
+const NOTIFY_HEIGHT_96DPI: i32 = 109;
+
+// Font parameters
+const FW_NORMAL: i32 = 400;
+const DEFAULT_CHARSET: u32 = 1;
+const OUT_DEFAULT_PRECIS: u32 = 0;
+const CLIP_DEFAULT_PRECIS: u32 = 0;
+const CLEARTYPE_QUALITY: u32 = 5;
+const VARIABLE_PITCH: u32 = 2;
+const FF_SWISS: u32 = 0x20;
+
+// ShowWindow commands
+const SW_SHOWNA: i32 = 8;
+
+// DPI awareness context
+const DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2: isize = -4;
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+#[allow(clippy::upper_case_acronyms)]
+struct RECT {
+    left: i32,
+    top: i32,
+    right: i32,
+    bottom: i32,
+}
+
+#[repr(C)]
+#[allow(non_snake_case, clippy::upper_case_acronyms)]
+struct WNDCLASSEXW {
+    cbSize: u32,
+    style: u32,
+    lpfnWndProc: unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> isize,
+    cbClsExtra: i32,
+    cbWndExtra: i32,
+    hInstance: isize,
+    hIcon: isize,
+    hCursor: isize,
+    hbrBackground: isize,
+    lpszMenuName: *const u16,
+    lpszClassName: *const u16,
+    hIconSm: isize,
+}
+
+#[repr(C)]
+#[allow(non_snake_case, clippy::upper_case_acronyms)]
+struct MSG {
+    hwnd: HWND,
+    message: u32,
+    wParam: WPARAM,
+    lParam: LPARAM,
+    time: u32,
+    pt_x: i32,
+    pt_y: i32,
+}
+
+/// Data passed to the notification window
+struct NotifyWindowData {
+    edit_hwnd: HWND,
+    font: isize,
+}
+
+#[link(name = "User32")]
+unsafe extern "system" {
+    fn RegisterClassExW(lpWndClass: *const WNDCLASSEXW) -> u16;
+    fn UnregisterClassW(lpClassName: *const u16, hInstance: isize) -> i32;
+    fn DefWindowProcW(hWnd: HWND, Msg: u32, wParam: WPARAM, lParam: LPARAM) -> isize;
+    fn GetMessageW(lpMsg: *mut MSG, hWnd: HWND, wMsgFilterMin: u32, wMsgFilterMax: u32) -> i32;
+    fn TranslateMessage(lpMsg: *const MSG) -> i32;
+    fn DispatchMessageW(lpMsg: *const MSG) -> isize;
+    fn PostQuitMessage(nExitCode: i32);
+    fn SetTimer(hWnd: HWND, nIDEvent: usize, uElapse: u32, lpTimerFunc: *const ()) -> usize;
+    fn KillTimer(hWnd: HWND, uIDEvent: usize) -> i32;
+    fn SystemParametersInfoW(
+        uiAction: u32,
+        uiParam: u32,
+        pvParam: *mut std::ffi::c_void,
+        fWinIni: u32,
+    ) -> i32;
+    fn ShowWindow(hWnd: HWND, nCmdShow: i32) -> i32;
+    fn GetClientRect(hWnd: HWND, lpRect: *mut RECT) -> i32;
+    fn MoveWindow(hWnd: HWND, X: i32, Y: i32, nWidth: i32, nHeight: i32, bRepaint: i32) -> i32;
+    fn SetWindowLongPtrW(hWnd: HWND, nIndex: i32, dwNewLong: isize) -> isize;
+    fn GetWindowLongPtrW(hWnd: HWND, nIndex: i32) -> isize;
+    fn SendMessageW(hWnd: HWND, Msg: u32, wParam: WPARAM, lParam: LPARAM) -> isize;
+    fn GetDpiForWindow(hwnd: HWND) -> u32;
+    fn SetWindowTextW(hWnd: HWND, lpString: *const u16) -> i32;
+    fn SetThreadDpiAwarenessContext(dpiContext: isize) -> isize;
+}
+
+#[link(name = "Gdi32")]
+unsafe extern "system" {
+    fn CreateFontW(
+        cHeight: i32,
+        cWidth: i32,
+        cEscapement: i32,
+        cOrientation: i32,
+        cWeight: i32,
+        bItalic: u32,
+        bUnderline: u32,
+        bStrikeOut: u32,
+        iCharSet: u32,
+        iOutPrecision: u32,
+        iClipPrecision: u32,
+        iQuality: u32,
+        iPitchAndFamily: u32,
+        pszFaceName: *const u16,
+    ) -> isize;
+    fn DeleteObject(ho: isize) -> i32;
+}
+
+/// Window procedure for the notification window
+unsafe extern "system" fn notify_wnd_proc(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> isize {
+    unsafe {
+        match msg {
+            WM_CREATE => {
+                // Get DPI for proper scaling
+                let dpi = GetDpiForWindow(hwnd);
+                let dpi = if dpi == 0 { 96 } else { dpi };
+                let scale = dpi as f32 / 96.0;
+
+                // Create font scaled for DPI (Microsoft YaHei UI, 12pt at 96 DPI)
+                let font_height = -(12.0 * scale) as i32;
+                let font_name = to_wide("Microsoft YaHei UI");
+                let font = CreateFontW(
+                    font_height,
+                    0,
+                    0,
+                    0,
+                    FW_NORMAL,
+                    0,
+                    0,
+                    0,
+                    DEFAULT_CHARSET,
+                    OUT_DEFAULT_PRECIS,
+                    CLIP_DEFAULT_PRECIS,
+                    CLEARTYPE_QUALITY,
+                    VARIABLE_PITCH | FF_SWISS,
+                    font_name.as_ptr(),
+                );
+
+                // Create the edit control for text display
+                let edit_class = to_wide("EDIT");
+                let edit_hwnd = CreateWindowExW(
+                    0,
+                    edit_class.as_ptr(),
+                    ptr::null(),
+                    WS_CHILD
+                        | WS_VISIBLE
+                        | WS_VSCROLL
+                        | ES_MULTILINE
+                        | ES_READONLY
+                        | ES_AUTOVSCROLL,
+                    0,
+                    0,
+                    0,
+                    0,
+                    hwnd,
+                    0,
+                    0,
+                    ptr::null_mut(),
+                );
+
+                if edit_hwnd != 0 {
+                    // Set the font
+                    SendMessageW(edit_hwnd, WM_SETFONT, font as WPARAM, 1);
+
+                    // Resize the edit control to fill the client area
+                    let mut rect: RECT = std::mem::zeroed();
+                    GetClientRect(hwnd, &mut rect);
+                    MoveWindow(
+                        edit_hwnd,
+                        0,
+                        0,
+                        rect.right - rect.left,
+                        rect.bottom - rect.top,
+                        1,
+                    );
+                }
+
+                // Store data in window user data
+                let data = Box::new(NotifyWindowData { edit_hwnd, font });
+                SetWindowLongPtrW(hwnd, GWLP_USERDATA, Box::into_raw(data) as isize);
+
+                0
+            }
+            WM_TIMER => {
+                if wparam == TIMER_ID_AUTOCLOSE {
+                    KillTimer(hwnd, TIMER_ID_AUTOCLOSE);
+                    DestroyWindow(hwnd);
+                }
+                0
+            }
+            WM_CLOSE => {
+                DestroyWindow(hwnd);
+                0
+            }
+            WM_DESTROY => {
+                PostQuitMessage(0);
+                0
+            }
+            WM_NCDESTROY => {
+                // Clean up allocated data
+                let data_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut NotifyWindowData;
+                if !data_ptr.is_null() {
+                    let data = Box::from_raw(data_ptr);
+                    if data.font != 0 {
+                        DeleteObject(data.font);
+                    }
+                }
+                DefWindowProcW(hwnd, msg, wparam, lparam)
+            }
+            _ => DefWindowProcW(hwnd, msg, wparam, lparam),
+        }
+    }
+}
+
+/// Displays a standalone notification window in the bottom-right corner of the screen.
 ///
-/// This function creates a temporary system tray icon, shows a balloon notification,
-/// and automatically removes the icon after a delay. Works on Windows 7 and above
-/// without any prerequisites.
+/// This function creates a custom popup window that appears above the taskbar,
+/// displaying the specified title and message. The window automatically closes
+/// after the specified timeout.
 ///
 /// ### Parameters
-/// - `title`: Notification title (max 63 characters, will be truncated if longer)
-/// - `msg`: Notification message text (max 255 characters, will be truncated if longer)
-/// - `icon_type`: Type of notification icon (`Info`, `Warning`, or `Error`)
-/// - `timeout_ms`: Time in milliseconds before the tray icon is automatically removed
-///   (the balloon itself follows system settings, typically 5-30 seconds)
+/// - `title`: Window title text
+/// - `msg`: Notification message text (displayed in a scrollable, read-only text box)
+/// - `_icon_type`: Reserved for compatibility (currently unused)
+/// - `timeout_ms`: Time in milliseconds before the window automatically closes
 ///
 /// ### Returns
 /// - `true` on success
 /// - `false` on failure
 ///
-/// ### Example
-/// ```ignore
-/// // Show an info notification
-/// show_notification("Download Complete", "Your file has been saved.", NotifyIconType::Info, 5000);
-///
-/// // Show a warning notification
-/// show_notification("Low Disk Space", "Less than 1GB remaining.", NotifyIconType::Warning, 5000);
-/// ```
-///
-/// ### Notes
-/// - This function spawns a background thread to remove the tray icon after `timeout_ms`
-/// - Multiple rapid calls may overlap; each call uses the same icon ID
-/// - Compatible with Windows 7, 8, 8.1, 10, and 11
+/// ### Features
+/// - Window appears in the bottom-right corner, above the taskbar
+/// - Always on top but does not steal focus
+/// - Automatically scales with system DPI
+/// - Text box supports word wrap and vertical scrolling for long messages
+/// - Only has a close button (no minimize/maximize)
 #[allow(dead_code)]
-pub fn show_notification(
+pub fn notify_msgbox_standalone(
     title: impl ToString,
     msg: impl ToString,
-    icon_type: NotifyIconType,
     timeout_ms: u64,
 ) -> bool {
-    let title_w = to_wide(title.to_string());
-    let msg_w = to_wide(msg.to_string());
+    let title_str = title.to_string();
+    let msg_str = msg.to_string();
 
-    // 将整个托盘的生命周期移至后台线程，保证同一线程创建和销毁，避免 DestroyWindow 跨线程失败
-    thread::spawn(move || {
-        let class_name = to_wide("STATIC");
-        let hwnd = unsafe {
-            CreateWindowExW(
+    let handle = thread::spawn(move || {
+        unsafe {
+            // Enable Per-Monitor DPI awareness for this thread
+            SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
+            // Generate a unique class name using timestamp
+            let timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let class_name_str = format!("NotifyWnd_{}", timestamp);
+            let class_name = to_wide(&class_name_str);
+
+            // Register window class
+            let wc = WNDCLASSEXW {
+                cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
+                style: 0,
+                lpfnWndProc: notify_wnd_proc,
+                cbClsExtra: 0,
+                cbWndExtra: 0,
+                hInstance: 0,
+                hIcon: 0,
+                hCursor: 0,
+                hbrBackground: 16, // COLOR_WINDOW + 1
+                lpszMenuName: ptr::null(),
+                lpszClassName: class_name.as_ptr(),
+                hIconSm: 0,
+            };
+
+            if RegisterClassExW(&wc) == 0 {
+                return;
+            }
+
+            // Get work area (screen area excluding taskbar)
+            let mut work_area: RECT = std::mem::zeroed();
+            SystemParametersInfoW(
+                SPI_GETWORKAREA,
                 0,
-                class_name.as_ptr(),
+                &mut work_area as *mut RECT as *mut std::ffi::c_void,
+                0,
+            );
+
+            // Create a temporary window to get DPI using system class
+            // to avoid triggering PostQuitMessage from our custom wndproc
+            let static_class = to_wide("STATIC");
+            let temp_hwnd = CreateWindowExW(
+                0,
+                static_class.as_ptr(),
                 ptr::null(),
                 0,
                 0,
                 0,
+                1,
+                1,
                 0,
-                0,
-                HWND_MESSAGE,
                 0,
                 0,
                 ptr::null_mut(),
-            )
-        };
+            );
 
-        if hwnd == 0 {
-            return;
+            let dpi = if temp_hwnd != 0 {
+                let d = GetDpiForWindow(temp_hwnd);
+                DestroyWindow(temp_hwnd);
+                if d == 0 { 96 } else { d }
+            } else {
+                96
+            };
+
+            // Scale dimensions for DPI
+            let scale = dpi as f32 / 96.0;
+            let width = (NOTIFY_WIDTH_96DPI as f32 * scale) as i32;
+            let height = (NOTIFY_HEIGHT_96DPI as f32 * scale) as i32;
+
+            // Position: bottom-right, above taskbar
+            let x = work_area.right - width;
+            let y = work_area.bottom - height;
+
+            // Create the notification window
+            let title_w = to_wide(&title_str);
+            let hwnd = CreateWindowExW(
+                WS_EX_TOPMOST | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW,
+                class_name.as_ptr(),
+                title_w.as_ptr(),
+                WS_POPUP | WS_CAPTION | WS_SYSMENU,
+                x,
+                y,
+                width,
+                height,
+                0,
+                0,
+                0,
+                ptr::null_mut(),
+            );
+
+            if hwnd == 0 {
+                UnregisterClassW(class_name.as_ptr(), 0);
+                return;
+            }
+
+            // Set the message text in the edit control
+            let data_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut NotifyWindowData;
+            if !data_ptr.is_null() {
+                let msg_w = to_wide(&msg_str);
+                SetWindowTextW((*data_ptr).edit_hwnd, msg_w.as_ptr());
+            }
+
+            // Set auto-close timer
+            if timeout_ms > 0 {
+                SetTimer(hwnd, TIMER_ID_AUTOCLOSE, timeout_ms as u32, ptr::null());
+            }
+
+            // Show window without activating
+            ShowWindow(hwnd, SW_SHOWNA);
+
+            // Message loop
+            let mut msg: MSG = std::mem::zeroed();
+            while GetMessageW(&mut msg, 0, 0, 0) > 0 {
+                TranslateMessage(&msg);
+                DispatchMessageW(&msg);
+            }
+
+            // Cleanup
+            UnregisterClassW(class_name.as_ptr(), 0);
         }
-
-        let mut nid: NOTIFYICONDATAW = unsafe { std::mem::zeroed() };
-        nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
-        nid.hWnd = hwnd;
-        nid.uID = STANDALONE_NOTIFY_ICON_ID;
-        nid.uFlags = NIF_ICON | NIF_TIP | NIF_INFO;
-        nid.hIcon = unsafe { LoadIconW(0, IDI_APPLICATION) };
-        nid.dwInfoFlags = match icon_type {
-            NotifyIconType::Info => NIIF_INFO,
-            NotifyIconType::Warning => NIIF_WARNING,
-            NotifyIconType::Error => NIIF_ERROR,
-        };
-
-        let tip_w = to_wide(PROCESS_NAME);
-        for (i, &c) in tip_w.iter().take(127).enumerate() {
-            nid.szTip[i] = c;
-        }
-        for (i, &c) in title_w.iter().take(63).enumerate() {
-            nid.szInfoTitle[i] = c;
-        }
-        for (i, &c) in msg_w.iter().take(255).enumerate() {
-            nid.szInfo[i] = c;
-        }
-
-        // 清理可能由于此前意外崩溃残留的相同 ID 图标
-        unsafe { Shell_NotifyIconW(NIM_DELETE, &nid) };
-
-        // 添加图标并展示气泡通知
-        if unsafe { Shell_NotifyIconW(NIM_ADD, &nid) } != 0 {
-            thread::sleep(std::time::Duration::from_millis(timeout_ms));
-
-            // 超时后将其移除 (此时 NIF_INFO 已经不重要，可以用原实例直接移除)
-            unsafe { Shell_NotifyIconW(NIM_DELETE, &nid) };
-        }
-
-        unsafe { DestroyWindow(hwnd) };
     });
 
+    // Store the thread handle for later joining
+    if let Ok(mut threads) = NOTIFY_THREADS.lock() {
+        threads.push(handle);
+    }
+
     true
+}
+
+/// Waits for all notification windows to close.
+///
+/// Call this before the main thread exits to ensure all notification
+/// windows have been properly closed and cleaned up.
+#[allow(dead_code)]
+pub fn wait_notifications() {
+    if let Ok(mut threads) = NOTIFY_THREADS.lock() {
+        for handle in threads.drain(..) {
+            let _ = handle.join();
+        }
+    }
 }
