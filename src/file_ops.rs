@@ -175,16 +175,11 @@ pub fn execute_process(
     args: Vec<String>,
     gui: HashMap<String, String>,
     notification: bool,
+    lang: bool,
 ) {
     println!("args: {:?}\n", &args);
 
     let default_empty = String::new();
-    let mut command = Command::new(path);
-
-    // 添加所有向量中的参数
-    for arg in &args {
-        command.arg(arg);
-    }
 
     // 根据是否包含long参数决定GUI设置
     let has_long = args.iter().any(|arg| arg.contains("long"));
@@ -196,17 +191,22 @@ pub fn execute_process(
     };
 
     let path_clone = path.to_path_buf();
+    let lang_arg = if lang { "--lang:cn" } else { "--lang:en" };
 
     std::thread::spawn(move || {
         let mut command = std::process::Command::new(path_clone);
 
         for arg in &args {
-            command.arg(arg);
+            if !arg.is_empty() {
+                command.arg(arg);
+            }
         }
 
         if !gui_arg.is_empty() {
             command.arg(gui_arg);
         }
+
+        command.arg(lang_arg);
 
         match command.status() {
             Ok(status) => {
@@ -258,16 +258,15 @@ pub fn build_capture_args(
 /// - `exe_path`: 截图程序路径
 /// - `args`: 命令行参数
 /// - `gui`: GUI配置参数
+/// - `lang`: 语言设置
 pub fn spawn_capture(
     exe_path: &std::path::Path,
     args: Vec<String>,
     gui: std::collections::HashMap<String, String>,
     notification: bool,
+    lang: bool,
 ) {
-    let exe = exe_path.to_path_buf();
-    std::thread::spawn(move || {
-        execute_process(&exe, args, gui, notification);
-    });
+    execute_process(exe_path, args, gui, notification, lang);
 }
 
 pub fn pause<T>(n: T)

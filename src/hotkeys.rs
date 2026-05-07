@@ -55,6 +55,7 @@ pub fn set_hotkeys(
         let comp_val = settings_collected.sundry.comp_level;
         let scale_val = settings_collected.sundry.scale_level;
         let notification = settings_collected.sundry.notification;
+        let lang = settings_collected.sundry.lang;
         let exe_path_clone = exe_path.clone();
         let save_path_clone = save_path.clone();
         let gui_clone = gui.clone();
@@ -65,7 +66,7 @@ pub fn set_hotkeys(
             &key_groups.get("screen_capture").unwrap().mod_keys,
             move || {
                 let args = crate::file_ops::build_capture_args(comp_val, scale_val, &save_path_clone, false);
-                execute_process(&exe_path_clone, args, gui_clone.clone(), notification);
+                execute_process(&exe_path_clone, args, gui_clone.clone(), notification, lang);
             },
         );
         if hotkey_sc.is_err() {
@@ -175,7 +176,7 @@ pub fn set_hotkeys(
             &key_groups.get("screen_capture_long").unwrap().mod_keys,
             move || {
                 let args = crate::file_ops::build_capture_args(comp_val2, scale_val2, &save_path_clone, true);
-                execute_process(&exe_path_clone, args, gui_clone.clone(), notification2);
+                execute_process(&exe_path_clone, args, gui_clone.clone(), notification2, lang);
             },
         );
         if hotkey_scl.is_err() {
@@ -192,7 +193,13 @@ pub fn set_hotkeys(
             key_groups.get("pin_to_screen").unwrap().vkey,
             &key_groups.get("pin_to_screen").unwrap().mod_keys,
             move || {
-                execute_process(&exe_path_clone, vec!["--pin:clipboard".to_string()], gui_clone.clone(), false);
+                execute_process(
+                    &exe_path_clone,
+                    vec!["--pin:clipboard".to_string()],
+                    gui_clone.clone(),
+                    false,
+                    lang,
+                );
             },
         );
         if hotkey_pin.is_err() {

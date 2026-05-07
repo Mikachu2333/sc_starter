@@ -143,6 +143,7 @@ fn main() {
     let comp_level = settings.sundry.comp_level;
     let scale_level = settings.sundry.scale_level;
     let notification = settings.sundry.notification;
+    let lang = settings.sundry.lang;
 
     let conf_path = path_infos.conf_path.clone();
 
@@ -172,7 +173,7 @@ fn main() {
             } = tray_event
             {
                 let args = build_capture_args(comp_level, scale_level, &save_path, false);
-                spawn_capture(&exe_path, args, gui.clone(), notification);
+                spawn_capture(&exe_path, args, gui.clone(), notification, lang);
             }
         }
 
@@ -186,7 +187,7 @@ fn main() {
                     tm.show_menu();
                 }
                 let args = build_capture_args(comp_level, scale_level, &save_path, false);
-                spawn_capture(&exe_path, args, gui.clone(), notification);
+                spawn_capture(&exe_path, args, gui.clone(), notification, lang);
             } else if menu_event.id == long_capture_id {
                 // 菜单：长截图
                 println!("Menu Event: Long Capture");
@@ -195,7 +196,7 @@ fn main() {
                     tm.show_menu();
                 }
                 let args = build_capture_args(comp_level, scale_level, &save_path, true);
-                spawn_capture(&exe_path, args, gui.clone(), notification);
+                spawn_capture(&exe_path, args, gui.clone(), notification, lang);
             } else if menu_event.id == full_capture_id {
                 println!("Menu Event: Full Capture");
                 if let Some(tm) = &tray_manager {
@@ -211,6 +212,7 @@ fn main() {
                     args,
                     std::collections::HashMap::new(),
                     notification,
+                    lang,
                 );
             } else if menu_event.id == open_config_id {
                 // 菜单：设置
