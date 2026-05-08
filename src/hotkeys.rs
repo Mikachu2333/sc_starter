@@ -6,19 +6,21 @@
 //! - 管理快捷键线程
 //! - 管理启动应用程序的进程状态
 
+use crate::file_ops::{execute_process, open_config};
 use crate::types::*;
 use crate::window_handle::{is_process_running, set_window_topmost_by_pid};
-use crate::{file_ops::{execute_process, open_config}, msgbox::error_msgbox};
 use std::{
     sync::{
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
-        mpsc, Arc, Mutex,
+        mpsc,
     },
     thread,
     {path::PathBuf, thread::JoinHandle},
 };
 use tao::event_loop::EventLoopProxy;
-use windows_hotkeys::{singlethreaded::HotkeyManager, HotkeyManagerImpl};
+use win_msgbox_timeout::error_msgbox;
+use windows_hotkeys::{HotkeyManagerImpl, singlethreaded::HotkeyManager};
 
 /// 设置全局快捷键并返回事件发送器
 ///
@@ -65,7 +67,12 @@ pub fn set_hotkeys(
             key_groups.get("screen_capture").unwrap().vkey,
             &key_groups.get("screen_capture").unwrap().mod_keys,
             move || {
-                let args = crate::file_ops::build_capture_args(comp_val, scale_val, &save_path_clone, false);
+                let args = crate::file_ops::build_capture_args(
+                    comp_val,
+                    scale_val,
+                    &save_path_clone,
+                    false,
+                );
                 execute_process(&exe_path_clone, args, gui_clone.clone(), notification, lang);
             },
         );
@@ -175,8 +182,19 @@ pub fn set_hotkeys(
             key_groups.get("screen_capture_long").unwrap().vkey,
             &key_groups.get("screen_capture_long").unwrap().mod_keys,
             move || {
-                let args = crate::file_ops::build_capture_args(comp_val2, scale_val2, &save_path_clone, true);
-                execute_process(&exe_path_clone, args, gui_clone.clone(), notification2, lang);
+                let args = crate::file_ops::build_capture_args(
+                    comp_val2,
+                    scale_val2,
+                    &save_path_clone,
+                    true,
+                );
+                execute_process(
+                    &exe_path_clone,
+                    args,
+                    gui_clone.clone(),
+                    notification2,
+                    lang,
+                );
             },
         );
         if hotkey_scl.is_err() {

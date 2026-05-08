@@ -6,12 +6,10 @@
 //! - 验证配置有效性
 //! - 转换配置格式
 
-use crate::{
-    msgbox::{self, error_msgbox},
-    types::*,
-};
+use crate::types::*;
 use std::{collections::HashMap, fs, path::PathBuf};
 use toml::Value;
+use win_msgbox_timeout::error_msgbox;
 
 /// 读取并解析TOML配置文件
 ///
@@ -154,7 +152,7 @@ fn get_kvs_from_config(
     // 在配置处理后通知用户错误
     if !errors.is_empty() {
         let error_message = format!("配置文件中存在以下问题:\n{}", errors.join("\n"));
-        msgbox::error_msgbox(error_message, "Configuration Error", 0);
+        error_msgbox(error_message, "Configuration Error", 0);
     }
     user_settings
 }

@@ -12,7 +12,6 @@
 mod config;
 mod file_ops;
 mod hotkeys;
-mod msgbox;
 mod tray;
 mod types;
 mod window_handle;
@@ -27,12 +26,13 @@ use single_instance::SingleInstance;
 use std::{
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
     },
 };
 use tao::event_loop::EventLoop;
 use tray_icon::MouseButton;
+use win_msgbox_timeout::error_msgbox;
 
 /// 随机生成的GUID，用于程序单例检测
 /// 防止程序多开造成快捷键冲突
@@ -52,7 +52,7 @@ fn main() {
     let instance = match SingleInstance::new(PROCESS_ID) {
         Ok(inst) => Box::new(inst),
         Err(e) => {
-            msgbox::error_msgbox(
+            error_msgbox(
                 format!("Failed to create single instance lock: {}", e),
                 "Fatal Error",
                 0,
@@ -62,7 +62,7 @@ fn main() {
     };
     if !instance.is_single() {
         // 检测到已有实例在运行时，显示提示并退出
-        msgbox::error_msgbox("Avoid Multiple.", "", 2);
+        error_msgbox("Avoid Multiple.", "", 2);
         panic!("Multiple!")
     };
 
@@ -81,7 +81,7 @@ fn main() {
     let binding = match directories::BaseDirs::new() {
         Some(bd) => bd,
         None => {
-            msgbox::error_msgbox(
+            error_msgbox(
                 "Failed to determine base directories (LOCALAPPDATA missing?).",
                 "Fatal Error",
                 0,

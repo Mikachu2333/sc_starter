@@ -33,7 +33,7 @@ struct PROCESSENTRY32W {
 }
 
 #[link(name = "user32")]
-extern "system" {
+unsafe extern "system" {
     fn SetWindowPos(
         hWnd: Hwnd,
         hWndInsertAfter: Hwnd,
@@ -52,7 +52,7 @@ extern "system" {
 }
 
 #[link(name = "kernel32")]
-extern "system" {
+unsafe extern "system" {
     fn CreateToolhelp32Snapshot(dw_flags: Dword, th32_process_id: Dword) -> Handle;
     fn Process32FirstW(hSnapshot: Handle, lppe: *mut PROCESSENTRY32W) -> Bool;
     fn Process32NextW(hSnapshot: Handle, lppe: *mut PROCESSENTRY32W) -> Bool;
@@ -73,16 +73,16 @@ pub unsafe fn set_window_topmost_by_pid(process_id: u32) {
         let target_pid = lparam as u32;
         let mut window_pid: Dword = 0;
 
-        GetWindowThreadProcessId(hwnd, &mut window_pid);
+        unsafe { GetWindowThreadProcessId(hwnd, &mut window_pid) };
 
-        if window_pid == target_pid && IsWindowVisible(hwnd) != 0 {
-            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+        if window_pid == target_pid && unsafe { IsWindowVisible(hwnd) } != 0 {
+            unsafe { SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE) };
         }
 
         1 // 继续枚举
     }
 
-    EnumWindows(enum_window_proc, process_id as isize);
+    unsafe { EnumWindows(enum_window_proc, process_id as isize) };
 }
 
 /// 检测指定程序是否正在运行
@@ -101,7 +101,7 @@ pub unsafe fn set_window_topmost_by_pid(process_id: u32) {
 pub unsafe fn is_process_running(process_name: impl ToString) -> bool {
     let target_name = process_name.to_string().to_lowercase();
     // 创建进程快照
-    let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
     if snapshot == INVALID_HANDLE_VALUE {
         return false;
     }
@@ -123,7 +123,7 @@ pub unsafe fn is_process_running(process_name: impl ToString) -> bool {
     let mut found = false;
 
     // 获取第一个进程
-    if Process32FirstW(snapshot, &mut pe32) != 0 {
+    if unsafe { Process32FirstW(snapshot, &mut pe32) } != 0 {
         loop {
             // 将进程名转换为String并转换为小写
             let exe_name = String::from_utf16_lossy(&pe32.sz_exe_file)
@@ -137,13 +137,13 @@ pub unsafe fn is_process_running(process_name: impl ToString) -> bool {
             }
 
             // 获取下一个进程
-            if Process32NextW(snapshot, &mut pe32) == 0 {
+            if unsafe { Process32NextW(snapshot, &mut pe32) } == 0 {
                 break;
             }
         }
     }
 
     // 清理资源
-    CloseHandle(snapshot);
+    unsafe { CloseHandle(snapshot) };
     found
 }

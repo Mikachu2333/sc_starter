@@ -6,10 +6,7 @@
 //! - 执行外部程序
 //! - 监控文件状态并自动恢复
 
-use crate::{
-    msgbox::*,
-    types::{FileExist, PathInfos, RES_HASH_SHA1},
-};
+use crate::types::{FileExist, PathInfos, RES_HASH_SHA1};
 use std::{
     collections::HashMap,
     fs,
@@ -17,11 +14,13 @@ use std::{
     path::Path,
     process::Command,
     sync::{
+        Arc,
         atomic::{AtomicBool, Ordering},
-        mpsc, Arc,
+        mpsc,
     },
     thread,
 };
+use win_msgbox_timeout::{error_msgbox, info_msgbox, notify_msgbox_standalone, wait_notifications};
 
 /// 检查所需文件是否存在及其状态
 ///

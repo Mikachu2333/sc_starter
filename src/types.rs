@@ -5,7 +5,7 @@ use std::{
 };
 use windows_hotkeys::keys::{ModKey, VKey};
 
-use crate::msgbox::warn_msgbox;
+use win_msgbox_timeout::warn_msgbox;
 
 /// 嵌入式 ScreenCapture 程序的相关信息与程序信息
 pub static RES_HASH_SHA1: &str = "5857D9E31E9B29739FA051DF537F36E8C1986528";
